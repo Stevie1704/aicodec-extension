@@ -1,26 +1,55 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { AicodecTreeDataProvider } from './tree/AicodecTreeDataProvider';
+import { getAicodecPath } from './utils';
+import { AicodecContentProvider } from './AicodecContentProvider';
+import { registerCommands } from './commands';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "aicodec" is now active!');
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('aicodec.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from aicodec!');
-	});
+    // Ensure a path is set on activation
+    const aicodecPath = await getAicodecPath(context);
+    if (!aicodecPath) {
+        vscode.window.showWarningMessage('AIcodec path not set. Please select your .aicodec directory.');
+        // The getAicodecPath function will have already prompted the user.
+        return;
+    }
 
-	context.subscriptions.push(disposable);
+    const aggregatesProvider = new AicodecTreeDataProvider(context, 'context.json');
+    const changesProvider = new AicodecTreeDataProvider(context, 'changes.json');
+    const revertsProvider = new AicodecTreeDataProvider(context, 'reverts.json');
+
+    const refresh = () => {
+        aggregatesProvider.refresh();
+        changesProvider.refresh();
+        revertsProvider.refresh();
+    };
+
+    vscode.window.createTreeView('aicodec.aggregatesView', { treeDataProvider: aggregatesProvider });
+    vscode.window.createTreeView('aicodec.changesView', { treeDataProvider: changesProvider });
+    vscode.window.createTreeView('aicodec.revertsView', { treeDataProvider: revertsProvider });
+    
+    const contentProvider = new AicodecContentProvider(context);
+    context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('aicodec-readonly', contentProvider));
+    
+    registerCommands(context, refresh);
+    
+    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(aicodecPath, '*.json'));
+    watcher.onDidChange(() => {
+        console.log('AIcodec config file changed, refreshing views.');
+        refresh();
+    });
+    watcher.onDidCreate(() => {
+        console.log('AIcodec config file created, refreshing views.');
+        refresh();
+    });
+    watcher.onDidDelete(() => {
+        console.log('AIcodec config file deleted, refreshing views.');
+        refresh();
+    });
+
+    context.subscriptions.push(watcher);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}

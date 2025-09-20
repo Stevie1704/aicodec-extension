@@ -1,7 +1,7 @@
 {
   "name": "aicodec",
-  "displayName": "aicodec",
-  "description": "A lightweight, CLI-first tool designed to streamline the interaction between a software developer and a Large Language Model (LLM)",
+  "displayName": "AIcodec GUI",
+  "description": "A VSCode GUI for the aicodec CLI tool.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.104.0"
@@ -9,22 +9,112 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:aicodec.changesView"
+  ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aicodec-sidebar",
+          "title": "AIcodec",
+          "icon": "$(beaker)"
+        }
+      ]
+    },
+    "views": {
+      "aicodec-sidebar": [
+        {
+          "id": "aicodec.aggregatesView",
+          "name": "Aggregates",
+          "contextualTitle": "AIcodec Aggregates"
+        },
+        {
+          "id": "aicodec.changesView",
+          "name": "Changes",
+          "contextualTitle": "AIcodec Changes"
+        },
+        {
+          "id": "aicodec.revertsView",
+          "name": "Reverts",
+          "contextualTitle": "AIcodec Reverts"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "aicodec.helloWorld",
-        "title": "Hello World"
+        "command": "aicodec.setPath",
+        "title": "AIcodec: Set .aicodec Directory Path"
+      },
+      {
+        "command": "aicodec.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aicodec.applyAllChanges",
+        "title": "Apply All Changes",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "aicodec.revertAllChanges",
+        "title": "Revert All Changes",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "aicodec.applyChange",
+        "title": "Apply Change",
+        "icon": "$(check)"
+      },
+      {
+        "command": "aicodec.revertChange",
+        "title": "Revert",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "aicodec.openDiff",
+        "title": "View Changes"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aicodec.refresh",
+          "when": "view == aicodec.aggregatesView || view == aicodec.changesView || view == aicodec.revertsView",
+          "group": "navigation"
+        },
+        {
+          "command": "aicodec.applyAllChanges",
+          "when": "view == aicodec.changesView",
+          "group": "navigation"
+        },
+        {
+          "command": "aicodec.revertAllChanges",
+          "when": "view == aicodec.revertsView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "aicodec.applyChange",
+          "when": "view == aicodec.changesView && viewItem == file",
+          "group": "inline"
+        },
+        {
+          "command": "aicodec.revertChange",
+          "when": "view == aicodec.revertsView && viewItem == file",
+          "group": "inline"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
+    "lint": "eslint src --ext ts",
     "test": "vscode-test"
   },
   "devDependencies": {

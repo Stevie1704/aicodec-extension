@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import { getAicodecPath, readAicodecJson } from './utils';
+import { readAicodecJson } from './utils';
 
 export class AicodecContentProvider implements vscode.TextDocumentContentProvider {
-    constructor(private context: vscode.ExtensionContext) {}
 
     async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
         const { aicodecPath, jsonFile, relativePath } = this.parseUri(uri);

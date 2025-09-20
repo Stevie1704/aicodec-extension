@@ -1,28 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
-export const AICODEC_PATH_KEY = 'aicodecPath';
+export function getAicodecPath(): string | undefined {
+    const config = vscode.workspace.getConfiguration('aicodec');
+    const aicodecPath = config.get<string>('path');
 
-export async function getAicodecPath(context: vscode.ExtensionContext): Promise<string | undefined> {
-    let aicodecPath = context.workspaceState.get<string>(AICODEC_PATH_KEY);
-    if (!aicodecPath) {
-        const pathUri = await vscode.window.showOpenDialog({
-            canSelectFiles: false,
-            canSelectFolders: true,
-            canSelectMany: false,
-            openLabel: 'Select .aicodec Folder',
-            title: 'Select .aicodec Folder Path'
-        });
-
-        if (pathUri && pathUri[0]) {
-            aicodecPath = pathUri[0].fsPath;
-            if (path.basename(aicodecPath) !== '.aicodec') {
-                vscode.window.showErrorMessage('The selected folder must be named ".aicodec".');
-                return undefined;
-            }
-            await context.workspaceState.update(AICODEC_PATH_KEY, aicodecPath);
-        }
+    if (!aicodecPath || aicodecPath.trim() === '') {
+        return undefined;
     }
+
     return aicodecPath;
 }
 

@@ -1,25 +1,16 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { AicodecTreeItem } from './tree/AicodecTreeItem';
-import { getAicodecPath, readAicodecJson, AICODEC_PATH_KEY } from './utils';
+import { getAicodecPath, readAicodecJson } from './utils';
 import { AicodecContentProvider } from './AicodecContentProvider';
 
 export async function registerCommands(context: vscode.ExtensionContext, refresh: () => void) {
-
-    const setPath = async () => {
-        await context.workspaceState.update(AICODEC_PATH_KEY, undefined);
-        const newPath = await getAicodecPath(context);
-        if (newPath) {
-            vscode.window.showInformationMessage(`AIcodec path set to: ${newPath}`);
-            refresh();
-        }
-    };
     
     const openDiff = async (item: AicodecTreeItem) => {
-        const aicodecPath = await getAicodecPath(context);
+        const aicodecPath = getAicodecPath();
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!aicodecPath || !workspaceFolders || !item.fullPath || !item.jsonSourceFile) {
-            vscode.window.showErrorMessage("Missing context to open diff.");
+            vscode.window.showErrorMessage("Missing context to open diff. Ensure the AIcodec path is set correctly in settings.");
             return;
         }
 
@@ -34,7 +25,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
     };
 
     const applyOrRevertSingle = async (item: AicodecTreeItem, jsonFile: string) => {
-        const aicodecPath = await getAicodecPath(context);
+        const aicodecPath = getAicodecPath();
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!aicodecPath || !workspaceFolders || !item.fullPath) { return; }
 
@@ -59,7 +50,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
     };
     
     const applyOrRevertAll = async (jsonFile: string) => {
-        const aicodecPath = await getAicodecPath(context);
+        const aicodecPath = getAicodecPath();
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!aicodecPath || !workspaceFolders) { return; }
         
@@ -89,7 +80,6 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
         refresh();
     };
 
-    context.subscriptions.push(vscode.commands.registerCommand('aicodec.setPath', setPath));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.refresh', refresh));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.openDiff', openDiff));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.applyChange', (item: AicodecTreeItem) => applyOrRevertSingle(item, 'changes.json')));

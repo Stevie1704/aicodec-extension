@@ -9,15 +9,24 @@ export class AicodecTreeItem extends vscode.TreeItem {
         public readonly jsonSourceFile?: string
     ) {
         super(label, collapsibleState);
+
         this.tooltip = this.fullPath || this.label;
-        if (isFile && fullPath && jsonSourceFile) {
+
+        // CRITICAL FIX: Both files and folders need a resourceUri to be rendered reliably.
+        if (fullPath) {
             this.resourceUri = vscode.Uri.file(fullPath);
-            this.command = {
-                command: 'aicodec.openDiff',
-                title: 'Open Diff',
-                arguments: [this]
-            };
+        }
+
+        if (isFile) {
             this.contextValue = 'file';
+            // Bonus Fix: Only add the 'Open Diff' command to items from changes.json and reverts.json
+            if (jsonSourceFile && jsonSourceFile !== 'context.json') {
+                this.command = {
+                    command: 'aicodec.openDiff',
+                    title: 'Open Diff',
+                    arguments: [this]
+                };
+            }
         } else {
             this.contextValue = 'folder';
         }

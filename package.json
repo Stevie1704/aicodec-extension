@@ -10,10 +10,23 @@
     "Other"
   ],
   "activationEvents": [
-    "onView:aicodec.changesView"
+    "onView:aicodec.aggregatesView",
+    "onView:aicodec.changesView",
+    "onView:aicodec.revertsView"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "AIcodec",
+      "properties": {
+        "aicodec.path": {
+          "type": "string",
+          "default": "",
+          "description": "The absolute path to the .aicodec directory for your project.",
+          "scope": "resource"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -43,10 +56,6 @@
       ]
     },
     "commands": [
-      {
-        "command": "aicodec.setPath",
-        "title": "AIcodec: Set .aicodec Directory Path"
-      },
       {
         "command": "aicodec.refresh",
         "title": "Refresh",

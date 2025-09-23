@@ -12,7 +12,6 @@ export class AicodecTreeItem extends vscode.TreeItem {
 
         this.tooltip = this.fullPath || this.label;
 
-        // CRITICAL FIX: Both files and folders need a resourceUri to be rendered reliably.
         if (fullPath) {
             this.resourceUri = vscode.Uri.file(fullPath);
         }
@@ -29,6 +28,11 @@ export class AicodecTreeItem extends vscode.TreeItem {
             }
         } else {
             this.contextValue = 'folder';
+        }
+
+        if (!this.fullPath) {
+            this.iconPath = undefined;
+            this.contextValue = 'placeholder';
         }
     }
 

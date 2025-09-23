@@ -48,6 +48,20 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
         
         await this.ensureFilePathsLoaded();
 
+        if (element === undefined && this.relativeFilePaths!.length === 0) {
+            let message = '';
+            if (this.jsonFileName === 'context.json') {
+                message = 'No aggregates found';
+            } else if (this.jsonFileName === 'changes.json') {
+                message = 'No changes found';
+            } else if (this.jsonFileName === 'reverts.json') {
+                message = 'No reverts found';
+            } else {
+                message = 'No items found';
+            }
+            return [new AicodecTreeItem(message, vscode.TreeItemCollapsibleState.None)];
+        }
+
         const workspaceRoot = workspaceFolders[0].uri.fsPath;
 
         // Determine the path of the parent node we are expanding.

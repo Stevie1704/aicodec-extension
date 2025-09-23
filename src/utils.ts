@@ -24,17 +24,25 @@ export async function readAicodecJson(aicodecPath: string, fileName: string): Pr
         const fileContents = await vscode.workspace.fs.readFile(fileUri);
         const text = Buffer.from(fileContents).toString('utf8');
         const data = JSON.parse(text);
+
+        let fileList: any[] = [];
+
+        // Handle both formats: a top-level array, or an object with a 'changes' array
         if (Array.isArray(data)) {
-            // Ensure items have the required properties
-            return data.filter(item => item && typeof item.filePath === 'string');
+            fileList = data; // Used by context.json
+        } else if (data && Array.isArray(data.changes)) {
+            fileList = data.changes; // Used by changes.json and revert.json
         }
-        return [];
+
+        // Ensure all items in the final list are valid
+        return fileList.filter(item => item && typeof item.filePath === 'string');
+
     } catch (error) {
         if (error instanceof vscode.FileSystemError && error.code === 'FileNotFound') {
-            // This is not an error, the file just might not exist yet.
-            return [];
+            return []; // Not an error, the file may not exist yet.
         }
         console.error(`Error reading or parsing ${fileName}:`, error);
+        vscode.window.showErrorMessage(`Failed to read or parse ${fileName}. See debug console for details.`);
         return [];
     }
 }

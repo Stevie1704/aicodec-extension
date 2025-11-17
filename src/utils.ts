@@ -46,3 +46,88 @@ export async function readAicodecJson(aicodecPath: string, fileName: string): Pr
         return [];
     }
 }
+
+/**
+ * Ensures config.json exists in the .aicodec directory.
+ * If not, prompts user to create a default config or open settings.
+ * Returns true if config exists or was created, false if user cancelled.
+ */
+export async function ensureConfigExists(): Promise<boolean> {
+    const aicodecPath = getAicodecPath();
+
+    if (!aicodecPath) {
+        vscode.window.showErrorMessage('AIcodec path is not set. Please set it in settings first.');
+        return false;
+    }
+
+    const fs = require('fs');
+    const configPath = path.join(aicodecPath, 'config.json');
+
+    // Check if config.json already exists
+    if (fs.existsSync(configPath)) {
+        return true;
+    }
+
+    // Config doesn't exist, ask user what to do
+    const choice = await vscode.window.showWarningMessage(
+        'config.json not found. Would you like to create a default configuration?',
+        { modal: true },
+        'Create Default Config',
+        'Open Settings Editor',
+        'Cancel'
+    );
+
+    if (choice === 'Create Default Config') {
+        // Create default config
+        const defaultConfig = {
+            "aggregate": {
+                "directories": ["./"],
+                "include": [],
+                "exclude": ["**/node_modules/**", "**/.git/**", "**/.aicodec/**"],
+                "use_gitignore": true,
+                "plugins": {}
+            },
+            "prompt": {
+                "tech_stack": "",
+                "include_code": true,
+                "include_map": false,
+                "minimal": false,
+                "output_file": ".aicodec/prompt.txt",
+                "clipboard": false
+            },
+            "prepare": {
+                "changes": ".aicodec/changes.json"
+            },
+            "apply": {
+                "output_dir": "./"
+            }
+        };
+
+        try {
+            // Ensure directory exists
+            if (!fs.existsSync(aicodecPath)) {
+                fs.mkdirSync(aicodecPath, { recursive: true });
+            }
+
+            // Write default config
+            fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
+
+            vscode.window.showInformationMessage('Default config.json created successfully!');
+
+            // Open the config file for editing
+            const doc = await vscode.workspace.openTextDocument(configPath);
+            await vscode.window.showTextDocument(doc);
+
+            return true;
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to create config.json: ${error}`);
+            return false;
+        }
+    } else if (choice === 'Open Settings Editor') {
+        // Open the config editor
+        vscode.commands.executeCommand('aicodec.editConfig');
+        return false;
+    }
+
+    return false;
+}

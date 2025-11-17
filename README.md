@@ -1,71 +1,96 @@
-# aicodec README
+# AIcodec GUI for VSCode
 
-This is the README for your extension "aicodec". After writing up a brief description, we recommend including the following sections.
+A Visual Studio Code extension that provides a graphical user interface for the [aicodec CLI tool](https://github.com/Stevie1704/aicodec). AIcodec helps you work with Large Language Models (LLMs) by managing code context, generating prompts, and applying AI-suggested changes to your codebase.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **Context Management**: Browse and manage files in your AI context via the Aggregates view
+- **Visual Diff**: Preview changes before applying them with side-by-side diff views
+- **Change Management**: Apply or revert individual changes or all changes at once
+- **Revert History**: Track and revert previously applied changes
+- **Configuration Editor**: User-friendly GUI for editing aicodec configuration
+- **Command Palette Integration**: Access all aicodec commands via F1 (all prefixed with "AIcodec:")
 
-For example if there is an image subfolder under your extension project workspace:
+### Available Commands
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- **AIcodec: Aggregate** - Scan your codebase and build context
+- **AIcodec: Aggregate (Force Rehash)** - Force rebuild of all file hashes
+- **AIcodec: Build Repository Map** - Generate a map of your repository structure
+- **AIcodec: Generate Prompt** - Create a prompt file for LLM interaction
+- **AIcodec: Prepare Changes** - Prepare LLM-suggested changes for review
+- **AIcodec: Show JSON Schema** - Display the JSON schema for LLM change proposals
+- **AIcodec: Edit Configuration** - Open the visual configuration editor
+- **AIcodec: Set .aicodec Directory Path** - Configure the .aicodec directory location
+- **AIcodec: Cleanup Temporary Files** - Remove temporary diff files
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+### Required
+- **aicodec CLI v2.9.0 or higher**: This extension requires the aicodec CLI tool to be installed
+  - **Minimum version**: 2.9.0
+  - Install via: `curl -sSL https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.sh | bash` (Linux/macOS)
+  - Or: `powershell -Command "irm https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.ps1 | iex"` (Windows)
+  - Or install manually from [GitHub](https://github.com/Stevie1704/aicodec)
+  - Check your version: `aicodec --version`
+
+### Optional
+- The extension will prompt you to install the CLI if not found
+- You can specify a custom CLI path in settings if not in PATH
+
+## Getting Started
+
+1. Install the extension
+2. Install the aicodec CLI (see Requirements above)
+3. Open a workspace/folder in VSCode
+4. Open the AIcodec sidebar (click the beaker icon in the activity bar)
+5. Click the gear icon to configure your project or run any command to auto-create a default config
+6. Run **AIcodec: Aggregate** to scan your codebase
+7. Run **AIcodec: Generate Prompt** to create a prompt for your LLM
+8. After getting changes from your LLM, use **AIcodec: Prepare Changes** to load them
+9. Preview changes in the Changes view and apply or revert as needed
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
 This extension contributes the following settings:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- `aicodec.path`: The absolute path to the .aicodec directory for your project (workspace-specific)
+- `aicodec.cliPath`: Path to the aicodec CLI executable (default: "aicodec" to use PATH)
+- `aicodec.useCli`: Use the aicodec CLI for operations (recommended, default: true)
+
+## Typical Workflow
+
+1. **Aggregate**: Scan your codebase to build context
+2. **Generate Prompt**: Create a prompt file with your coding task
+3. **LLM Interaction**: Copy the prompt to your LLM (Claude, GPT, etc.)
+4. **Prepare Changes**: Paste the LLM's JSON response
+5. **Review**: Preview changes in diff view
+6. **Apply**: Apply changes you approve
+7. **Revert**: Roll back changes if needed
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+- Requires the aicodec CLI to be installed separately
+- The visual config editor requires manual save (click "Save Configuration" button)
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.1.0 - Initial Release
 
-### 1.0.0
+- Full VSCode GUI for aicodec CLI
+- Three views: Aggregates, Changes, and Reverts
+- Visual configuration editor
+- Diff preview for all changes
+- Command palette integration for all CLI commands
+- Automatic config.json creation
+- Temporary file cleanup
 
-Initial release of ...
+## More Information
 
-### 1.0.1
+- [Extension Repository](https://github.com/Stevie1704/aicodec-extension)
+- [aicodec CLI Repository](https://github.com/Stevie1704/aicodec)
+- [Report Issues](https://github.com/Stevie1704/aicodec-extension/issues)
+- [CLI Documentation](https://github.com/Stevie1704/aicodec#readme)
 
-Fixed issue #.
+## License
 
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+MIT

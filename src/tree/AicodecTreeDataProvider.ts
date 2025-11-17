@@ -54,7 +54,7 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
                 message = 'No aggregates found';
             } else if (this.jsonFileName === 'changes.json') {
                 message = 'No changes found';
-            } else if (this.jsonFileName === 'reverts.json') {
+            } else if (this.jsonFileName === 'revert.json') {
                 message = 'No reverts found';
             } else {
                 message = 'No items found';

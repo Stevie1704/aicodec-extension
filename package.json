@@ -1,140 +1,241 @@
 {
-  "name": "aicodec",
-  "displayName": "AIcodec GUI",
-  "description": "A VSCode GUI for the aicodec CLI tool.",
-  "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.104.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onView:aicodec.aggregatesView",
-    "onView:aicodec.changesView",
-    "onView:aicodec.revertsView"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "configuration": {
-      "title": "AIcodec",
-      "properties": {
-        "aicodec.path": {
-          "type": "string",
-          "default": "",
-          "description": "The absolute path to the .aicodec directory for your project.",
-          "scope": "resource"
-        }
-      }
+    "name": "aicodec",
+    "displayName": "AIcodec GUI",
+    "description": "A VSCode GUI for the aicodec CLI tool.",
+    "version": "0.1.0",
+    "publisher": "steviekra",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Stevie1704/aicodec-extension"
     },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "aicodec-sidebar",
-          "title": "AIcodec",
-          "icon": "$(beaker)"
-        }
-      ]
+    "bugs": {
+        "url": "https://github.com/Stevie1704/aicodec-extension/issues"
     },
-    "views": {
-      "aicodec-sidebar": [
-        {
-          "id": "aicodec.aggregatesView",
-          "name": "Aggregates",
-          "contextualTitle": "AIcodec Aggregates"
-        },
-        {
-          "id": "aicodec.changesView",
-          "name": "Changes",
-          "contextualTitle": "AIcodec Changes"
-        },
-        {
-          "id": "aicodec.revertsView",
-          "name": "Reverts",
-          "contextualTitle": "AIcodec Reverts"
-        }
-      ]
+    "homepage": "https://github.com/Stevie1704/aicodec-extension#readme",
+    "license": "MIT",
+    "icon": "icon.png",
+    "engines": {
+        "vscode": "^1.104.0"
     },
-    "commands": [
-      {
-        "command": "aicodec.refresh",
-        "title": "Refresh",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "aicodec.applyAllChanges",
-        "title": "Apply All Changes",
-        "icon": "$(check-all)"
-      },
-      {
-        "command": "aicodec.revertAllChanges",
-        "title": "Revert All Changes",
-        "icon": "$(discard)"
-      },
-      {
-        "command": "aicodec.applyChange",
-        "title": "Apply Change",
-        "icon": "$(check)"
-      },
-      {
-        "command": "aicodec.revertChange",
-        "title": "Revert",
-        "icon": "$(discard)"
-      },
-      {
-        "command": "aicodec.openDiff",
-        "title": "View Changes"
-      }
+    "categories": [
+        "Other"
     ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "aicodec.refresh",
-          "when": "view == aicodec.aggregatesView || view == aicodec.changesView || view == aicodec.revertsView",
-          "group": "navigation"
+    "keywords": [
+        "ai",
+        "llm",
+        "code-generation",
+        "refactoring",
+        "aicodec"
+    ],
+    "activationEvents": [
+        "onView:aicodec.aggregatesView",
+        "onView:aicodec.changesView",
+        "onView:aicodec.revertsView"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "configuration": {
+            "title": "AIcodec",
+            "properties": {
+                "aicodec.path": {
+                    "type": "string",
+                    "default": "",
+                    "description": "The absolute path to the .aicodec directory for your project.",
+                    "scope": "resource"
+                },
+                "aicodec.cliPath": {
+                    "type": "string",
+                    "default": "aicodec",
+                    "description": "Path to the aicodec CLI executable. Set to 'aicodec' to use PATH, or specify a full path to the executable.",
+                    "scope": "machine"
+                },
+                "aicodec.useCli": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Use the aicodec CLI for apply/revert operations (recommended). When disabled, uses built-in TypeScript implementation (no session management or revert.json creation).",
+                    "scope": "resource"
+                }
+            }
         },
-        {
-          "command": "aicodec.applyAllChanges",
-          "when": "view == aicodec.changesView",
-          "group": "navigation"
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "aicodec-sidebar",
+                    "title": "AIcodec",
+                    "icon": "$(beaker)"
+                }
+            ]
         },
-        {
-          "command": "aicodec.revertAllChanges",
-          "when": "view == aicodec.revertsView",
-          "group": "navigation"
+        "views": {
+            "aicodec-sidebar": [
+                {
+                    "id": "aicodec.aggregatesView",
+                    "name": "Aggregates",
+                    "contextualTitle": "AIcodec Aggregates"
+                },
+                {
+                    "id": "aicodec.changesView",
+                    "name": "Changes",
+                    "contextualTitle": "AIcodec Changes"
+                },
+                {
+                    "id": "aicodec.revertsView",
+                    "name": "Reverts",
+                    "contextualTitle": "AIcodec Reverts"
+                }
+            ]
+        },
+        "commands": [
+            {
+                "command": "aicodec.setPath",
+                "title": "AIcodec: Set .aicodec Directory Path",
+                "icon": "$(folder)"
+            },
+            {
+                "command": "aicodec.refresh",
+                "title": "Refresh",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "aicodec.schema",
+                "title": "AIcodec: Show JSON Schema",
+                "icon": "$(json)"
+            },
+            {
+                "command": "aicodec.aggregate",
+                "title": "AIcodec: Aggregate",
+                "icon": "$(output)"
+            },
+            {
+                "command": "aicodec.aggregateForce",
+                "title": "AIcodec: Aggregate (Force Rehash)",
+                "icon": "$(sync)"
+            },
+            {
+                "command": "aicodec.buildmap",
+                "title": "AIcodec: Build Repository Map",
+                "icon": "$(file-directory)"
+            },
+            {
+                "command": "aicodec.prompt",
+                "title": "AIcodec: Generate Prompt",
+                "icon": "$(file-code)"
+            },
+            {
+                "command": "aicodec.prepare",
+                "title": "AIcodec: Prepare Changes",
+                "icon": "$(edit)"
+            },
+            {
+                "command": "aicodec.applyAllChanges",
+                "title": "Apply All Changes",
+                "icon": "$(check-all)"
+            },
+            {
+                "command": "aicodec.revertAllChanges",
+                "title": "Revert All Changes",
+                "icon": "$(discard)"
+            },
+            {
+                "command": "aicodec.applyChange",
+                "title": "Apply Change",
+                "icon": "$(check)"
+            },
+            {
+                "command": "aicodec.revertChange",
+                "title": "Revert",
+                "icon": "$(discard)"
+            },
+            {
+                "command": "aicodec.openDiff",
+                "title": "View Changes"
+            },
+            {
+                "command": "aicodec.editConfig",
+                "title": "AIcodec: Edit Configuration",
+                "icon": "$(gear)"
+            },
+            {
+                "command": "aicodec.deleteFromContext",
+                "title": "Remove from Context",
+                "icon": "$(trash)"
+            },
+            {
+                "command": "aicodec.cleanupTemp",
+                "title": "AIcodec: Cleanup Temporary Files",
+                "icon": "$(trash)"
+            }
+        ],
+        "menus": {
+            "view/title": [
+                {
+                    "command": "aicodec.editConfig",
+                    "when": "view == aicodec.aggregatesView || view == aicodec.changesView || view == aicodec.revertsView",
+                    "group": "navigation@0"
+                },
+                {
+                    "command": "aicodec.refresh",
+                    "when": "view == aicodec.aggregatesView || view == aicodec.changesView || view == aicodec.revertsView",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "aicodec.aggregate",
+                    "when": "view == aicodec.aggregatesView",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "aicodec.aggregateForce",
+                    "when": "view == aicodec.aggregatesView",
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "aicodec.applyAllChanges",
+                    "when": "view == aicodec.changesView",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "aicodec.revertAllChanges",
+                    "when": "view == aicodec.revertsView",
+                    "group": "navigation@2"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "aicodec.deleteFromContext",
+                    "when": "view == aicodec.aggregatesView && (viewItem == file || viewItem == folder)",
+                    "group": "inline"
+                },
+                {
+                    "command": "aicodec.applyChange",
+                    "when": "view == aicodec.changesView && viewItem == file",
+                    "group": "inline"
+                },
+                {
+                    "command": "aicodec.revertChange",
+                    "when": "view == aicodec.revertsView && viewItem == file",
+                    "group": "inline"
+                }
+            ]
         }
-      ],
-      "view/item/context": [
-        {
-          "command": "aicodec.applyChange",
-          "when": "view == aicodec.changesView && viewItem == file",
-          "group": "inline"
-        },
-        {
-          "command": "aicodec.revertChange",
-          "when": "view == aicodec.revertsView && viewItem == file",
-          "group": "inline"
-        }
-      ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "vscode-test"
+    },
+    "devDependencies": {
+        "@types/estree": "^1.0.8",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "22.x",
+        "@types/vscode": "^1.104.0",
+        "@typescript-eslint/eslint-plugin": "^8.42.0",
+        "@typescript-eslint/parser": "^8.42.0",
+        "@vscode/test-cli": "^0.0.11",
+        "@vscode/test-electron": "^2.5.2",
+        "eslint": "^9.34.0",
+        "typescript": "^5.9.2"
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "vscode-test"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.104.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
-    "@typescript-eslint/eslint-plugin": "^8.42.0",
-    "@typescript-eslint/parser": "^8.42.0",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2",
-    "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
-  }
 }

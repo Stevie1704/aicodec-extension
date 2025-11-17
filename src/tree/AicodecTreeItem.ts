@@ -18,8 +18,17 @@ export class AicodecTreeItem extends vscode.TreeItem {
 
         if (isFile) {
             this.contextValue = 'file';
-            // Bonus Fix: Only add the 'Open Diff' command to items from changes.json and reverts.json
-            if (jsonSourceFile && jsonSourceFile !== 'context.json') {
+            this.iconPath = vscode.ThemeIcon.File;
+            // Set command based on source file
+            if (jsonSourceFile === 'context.json') {
+                // For aggregate files, open the file on double-click
+                this.command = {
+                    command: 'aicodec.openFile',
+                    title: 'Open File',
+                    arguments: [this]
+                };
+            } else if (jsonSourceFile && jsonSourceFile !== 'context.json') {
+                // For changes/reverts, open diff view
                 this.command = {
                     command: 'aicodec.openDiff',
                     title: 'Open Diff',
@@ -28,13 +37,12 @@ export class AicodecTreeItem extends vscode.TreeItem {
             }
         } else {
             this.contextValue = 'folder';
+            this.iconPath = vscode.ThemeIcon.Folder;
         }
 
         if (!this.fullPath) {
-            this.iconPath = undefined;
+            this.iconPath = new vscode.ThemeIcon('info');
             this.contextValue = 'placeholder';
         }
     }
-
-    iconPath = this.isFile ? vscode.ThemeIcon.File : vscode.ThemeIcon.Folder;
 }

@@ -1,0 +1,12 @@
+{
+    "name": "AI Codec Extension Devcontainer",
+    "image": "mcr.microsoft.com/vscode/devcontainers/typescript-node:22-bullseye",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash"
+            }
+        }
+    },
+    "postCreateCommand": "npm install"
+}

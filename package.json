@@ -27,11 +27,6 @@
         "refactoring",
         "aicodec"
     ],
-    "activationEvents": [
-        "onView:aicodec.aggregatesView",
-        "onView:aicodec.changesView",
-        "onView:aicodec.revertsView"
-    ],
     "main": "./out/extension.js",
     "contributes": {
         "configuration": {

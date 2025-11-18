@@ -74,13 +74,17 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
 
         // Iterate through the entire flat list to find direct children
         for (const fullRelativePath of this.relativeFilePaths!) {
-            if (parentRelativePath && !fullRelativePath.startsWith(parentRelativePath + path.sep)) {
+            // Normalize path separators to match the current OS
+            const normalizedPath = fullRelativePath.split(/[\\/]/).join(path.sep);
+            const normalizedParent = parentRelativePath.split(/[\\/]/).join(path.sep);
+
+            if (normalizedParent && !normalizedPath.startsWith(normalizedParent + path.sep)) {
                 continue;
             }
 
-            const pathAfterParent = parentRelativePath
-                ? fullRelativePath.substring(parentRelativePath.length + 1)
-                : fullRelativePath;
+            const pathAfterParent = normalizedParent
+                ? normalizedPath.substring(normalizedParent.length + 1)
+                : normalizedPath;
 
             const segments = pathAfterParent.split(path.sep);
             const childName = segments[0];

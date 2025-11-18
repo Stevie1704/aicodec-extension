@@ -23,6 +23,20 @@ A Visual Studio Code extension that provides a graphical user interface for the 
 - **AIcodec: Set .aicodec Directory Path** - Configure the .aicodec directory location
 - **AIcodec: Cleanup Temporary Files** - Remove temporary diff files
 
+## Installation
+
+### Install from VS Code Marketplace
+
+**Option 1: Visual Studio Code**
+1. Open VS Code
+2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
+3. Search for "AIcodec GUI"
+4. Click Install
+
+**Option 2: Direct Install**
+- [Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=steviekra.aicodec)
+- Or run in VS Code: `ext install steviekra.aicodec`
+
 ## Requirements
 
 ### Required
@@ -73,6 +87,12 @@ This extension contributes the following settings:
 - The visual config editor requires manual save (click "Save Configuration" button)
 
 ## Release Notes
+
+### 0.1.1 - Bug Fixes
+
+- Fixed tree hierarchy display issue where files appeared in flat structure instead of tree
+- Fixed path separator compatibility across Windows/Unix systems
+- Changed activity bar icon from beaker to file-code for better distinction
 
 ### 0.1.0 - Initial Release
 

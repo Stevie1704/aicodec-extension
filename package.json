@@ -2,7 +2,7 @@
     "name": "aicodec",
     "displayName": "AIcodec GUI",
     "description": "A VSCode GUI for the aicodec CLI tool.",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "publisher": "steviekra",
     "repository": {
         "type": "git",
@@ -62,7 +62,7 @@
                 {
                     "id": "aicodec-sidebar",
                     "title": "AIcodec",
-                    "icon": "$(beaker)"
+                    "icon": "$(file-code)"
                 }
             ]
         },

@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { AicodecTreeItem } from './tree/AicodecTreeItem';
-import { getAicodecPath, readAicodecJson, ensureConfigExists } from './utils';
+import { getAicodecPath, readAicodecJson, ensureConfigExists, AicodecFile } from './utils';
 import { AicodecContentProvider } from './AicodecContentProvider';
 import { ConfigEditorPanel } from './ConfigEditorPanel';
 import {
@@ -392,7 +393,27 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
         }
 
         // Fallback: TypeScript implementation
-        const files = await readAicodecJson(aicodecPath, jsonFile);
+        let files: AicodecFile[];
+
+        // For revert files with sessions, read from specific revert file
+        if (jsonFile === 'revert.json' && item.jsonSourceFile && item.jsonSourceFile.startsWith('revert-')) {
+            const revertFilePath = path.join(aicodecPath, 'reverts', item.jsonSourceFile);
+            try {
+                const content = fs.readFileSync(revertFilePath, 'utf8');
+                const data = JSON.parse(content);
+                files = (data.changes || []).map((c: any) => ({
+                    filePath: c.filePath,
+                    content: c.content || ''
+                }));
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to read revert file ${item.jsonSourceFile}: ${error}`);
+                return;
+            }
+        } else {
+            // Regular changes.json or old revert.json format
+            files = await readAicodecJson(aicodecPath, jsonFile);
+        }
+
         const targetFile = files.find(f => f.filePath === relativePath);
 
         if (targetFile) {
@@ -401,7 +422,6 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
 
                 // Ensure parent directories exist
                 const parentDir = path.dirname(item.fullPath);
-                const fs = require('fs');
                 if (!fs.existsSync(parentDir)) {
                     fs.mkdirSync(parentDir, { recursive: true });
                 }
@@ -409,6 +429,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
                 const newContent = Buffer.from(targetFile.content, 'utf8');
                 await vscode.workspace.fs.writeFile(fileUri, newContent);
                 vscode.window.showInformationMessage(`Updated ${relativePath} (using built-in implementation)`);
+                refresh();
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to write file ${relativePath}: ${error}`);
             }
@@ -894,6 +915,52 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
         }
     };
 
+    const startNewSession = async () => {
+        const aicodecPath = getAicodecPath();
+        if (!aicodecPath) {
+            vscode.window.showErrorMessage('AIcodec path is not set. Please configure it first.');
+            return;
+        }
+
+        const revertsDir = path.join(aicodecPath, 'reverts');
+
+        if (!fs.existsSync(revertsDir)) {
+            vscode.window.showInformationMessage('No active session. Reverts folder is already clean.');
+            return;
+        }
+
+        const revertFiles = fs.readdirSync(revertsDir).filter((f: string) => f.startsWith('revert-') && f.endsWith('.json'));
+
+        if (revertFiles.length === 0) {
+            vscode.window.showInformationMessage('No active session. Reverts folder is already clean.');
+            return;
+        }
+
+        const confirm = await vscode.window.showWarningMessage(
+            `This will clear ${revertFiles.length} revert file(s) and you won't be able to undo previous changes. Continue?`,
+            { modal: true },
+            'Yes, Start New Session',
+            'Cancel'
+        );
+
+        if (confirm === 'Yes, Start New Session') {
+            try {
+                // Delete all revert files
+                for (const file of revertFiles) {
+                    fs.unlinkSync(path.join(revertsDir, file));
+                }
+                // Remove the directory if empty
+                if (fs.readdirSync(revertsDir).length === 0) {
+                    fs.rmdirSync(revertsDir);
+                }
+                vscode.window.showInformationMessage('New session started. Reverts cleared.');
+                refresh();
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to clear reverts: ${error}`);
+            }
+        }
+    };
+
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.setPath', setAicodecPath));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.editConfig', openConfigEditor));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.refresh', refresh));
@@ -911,4 +978,5 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.revertChange', (item: AicodecTreeItem) => applyOrRevertSingle(item, 'revert.json')));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.applyAllChanges', () => applyOrRevertAll('changes.json')));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.revertAllChanges', () => applyOrRevertAll('revert.json')));
+    context.subscriptions.push(vscode.commands.registerCommand('aicodec.startNewSession', startNewSession));
 }

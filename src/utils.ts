@@ -15,9 +15,15 @@ export function getAicodecPath(): string | undefined {
 export interface AicodecFile {
     filePath: string;
     content: string;
+    revertSession?: string;  // For revert files: which revert-XXX.json they came from
 }
 
 export async function readAicodecJson(aicodecPath: string, fileName: string): Promise<AicodecFile[]> {
+    // Special handling for revert files - read from reverts folder
+    if (fileName === 'revert.json') {
+        return readRevertFiles(aicodecPath);
+    }
+
     const filePath = path.join(aicodecPath, fileName);
     try {
         const fileUri = vscode.Uri.file(filePath);
@@ -31,7 +37,7 @@ export async function readAicodecJson(aicodecPath: string, fileName: string): Pr
         if (Array.isArray(data)) {
             fileList = data; // Used by context.json
         } else if (data && Array.isArray(data.changes)) {
-            fileList = data.changes; // Used by changes.json and revert.json
+            fileList = data.changes; // Used by changes.json
         }
 
         // Ensure all items in the final list are valid
@@ -43,6 +49,58 @@ export async function readAicodecJson(aicodecPath: string, fileName: string): Pr
         }
         console.error(`Error reading or parsing ${fileName}:`, error);
         vscode.window.showErrorMessage(`Failed to read or parse ${fileName}. See debug console for details.`);
+        return [];
+    }
+}
+
+/**
+ * Reads all revert files from the reverts folder and returns the actual files being reverted.
+ * Each file is tagged with which revert session it came from.
+ */
+async function readRevertFiles(aicodecPath: string): Promise<AicodecFile[]> {
+    const revertsDir = path.join(aicodecPath, 'reverts');
+    const fs = require('fs');
+
+    try {
+        if (!fs.existsSync(revertsDir)) {
+            return [];
+        }
+
+        const files = fs.readdirSync(revertsDir);
+        const revertFiles = files
+            .filter((f: string) => f.startsWith('revert-') && f.endsWith('.json'))
+            .sort()
+            .reverse(); // Newest first
+
+        const allFiles: AicodecFile[] = [];
+
+        // Read each revert file and extract the file paths
+        for (const revertFileName of revertFiles) {
+            const revertFilePath = path.join(revertsDir, revertFileName);
+            try {
+                const content = fs.readFileSync(revertFilePath, 'utf8');
+                const data = JSON.parse(content);
+                const changes = data.changes || [];
+
+                // Add each file from this revert session
+                for (const change of changes) {
+                    if (change.filePath) {
+                        allFiles.push({
+                            filePath: change.filePath,
+                            content: change.content || '',
+                            revertSession: revertFileName
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error(`Error reading revert file ${revertFileName}:`, error);
+            }
+        }
+
+        return allFiles;
+
+    } catch (error) {
+        console.error(`Error reading reverts folder:`, error);
         return [];
     }
 }

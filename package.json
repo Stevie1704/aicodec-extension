@@ -159,6 +159,11 @@
                 "command": "aicodec.cleanupTemp",
                 "title": "AIcodec: Cleanup Temporary Files",
                 "icon": "$(trash)"
+            },
+            {
+                "command": "aicodec.startNewSession",
+                "title": "AIcodec: Start New Session",
+                "icon": "$(trash)"
             }
         ],
         "menus": {
@@ -192,6 +197,11 @@
                     "command": "aicodec.revertAllChanges",
                     "when": "view == aicodec.revertsView",
                     "group": "navigation@2"
+                },
+                {
+                    "command": "aicodec.startNewSession",
+                    "when": "view == aicodec.revertsView",
+                    "group": "navigation@3"
                 }
             ],
             "view/item/context": [

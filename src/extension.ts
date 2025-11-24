@@ -1,46 +1,44 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { AicodecTreeDataProvider } from './tree/AicodecTreeDataProvider';
 import { getAicodecPath } from './utils';
 import { AicodecContentProvider } from './AicodecContentProvider';
 import { registerCommands } from './commands';
 
 async function showSettingsWarning() {
-    const useWorkspace = 'Use Current Workspace';
-    const browsePath = 'Browse for Project Directory';
+    const initializeAicodec = 'Initialize AIcodec';
+    const browsePath = 'Browse for Existing Directory';
     const openSettings = 'Open Settings';
     const dismiss = 'Dismiss';
 
     const selection = await vscode.window.showWarningMessage(
-        'The path to your .aicodec directory is not set. Would you like to browse for it now?',
-        useWorkspace,
+        'AIcodec is not initialized. Would you like to create a new configuration?',
+        initializeAicodec,
         browsePath,
         openSettings,
         dismiss
     );
 
-    if (selection === useWorkspace) {
-        // Try to use the current workspace folder
+    if (selection === initializeAicodec) {
+        // Initialize AIcodec in the current workspace
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (workspaceFolders && workspaceFolders.length > 0) {
             const workspaceRoot = workspaceFolders[0].uri.fsPath;
             const aicodecPath = path.join(workspaceRoot, '.aicodec');
-            const configPath = path.join(aicodecPath, 'config.json');
 
-            try {
-                await vscode.workspace.fs.stat(vscode.Uri.file(configPath));
+            // Set the workspace configuration to the new .aicodec path
+            const config = vscode.workspace.getConfiguration('aicodec');
+            await config.update('path', aicodecPath, vscode.ConfigurationTarget.Workspace);
 
-                const config = vscode.workspace.getConfiguration('aicodec');
-                await config.update('path', aicodecPath, vscode.ConfigurationTarget.Workspace);
+            // Open the config editor - it will create the directory and config on save
+            vscode.commands.executeCommand('aicodec.editConfig');
 
-                vscode.window.showInformationMessage(`AIcodec path set to: ${aicodecPath}`);
-            } catch {
-                vscode.window.showErrorMessage(
-                    `No .aicodec directory found in the current workspace at: ${workspaceRoot}`
-                );
-            }
+            vscode.window.showInformationMessage(
+                `AIcodec will be initialized at: ${aicodecPath}. Please configure and save your settings.`
+            );
         } else {
-            vscode.window.showErrorMessage('No workspace folder is currently open.');
+            vscode.window.showErrorMessage('No workspace folder is currently open. Please open a workspace first.');
         }
     } else if (selection === browsePath) {
         const folderUri = await vscode.window.showOpenDialog({
@@ -127,10 +125,18 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     };
 
-    if (!getAicodecPath()) {
+    // Check if AIcodec is properly initialized
+    const aicodecPath = getAicodecPath();
+    if (!aicodecPath) {
         showSettingsWarning();
+    } else {
+        // Path is set, check if config.json exists
+        const configPath = path.join(aicodecPath, 'config.json');
+        if (!fs.existsSync(configPath)) {
+            showSettingsWarning();
+        }
     }
-    
+
     setupFileWatcher();
 
     vscode.window.createTreeView('aicodec.aggregatesView', { treeDataProvider: aggregatesProvider });
@@ -145,8 +151,15 @@ export async function activate(context: vscode.ExtensionContext) {
     
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('aicodec.path')) {
-            if (!getAicodecPath()) {
+            const newAicodecPath = getAicodecPath();
+            if (!newAicodecPath) {
                 showSettingsWarning();
+            } else {
+                // Path is set, check if config.json exists
+                const configPath = path.join(newAicodecPath, 'config.json');
+                if (!fs.existsSync(configPath)) {
+                    showSettingsWarning();
+                }
             }
             setupFileWatcher();
             refresh();

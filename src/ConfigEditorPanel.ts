@@ -127,6 +127,13 @@ export class ConfigEditorPanel {
         const configPath = path.join(aicodecPath, 'config.json');
 
         try {
+            // Ensure the .aicodec directory exists
+            if (!fs.existsSync(aicodecPath)) {
+                fs.mkdirSync(aicodecPath, { recursive: true });
+                vscode.window.showInformationMessage(`Created AIcodec directory at: ${aicodecPath}`);
+            }
+
+            // Write the config file
             const configContent = JSON.stringify(config, null, 2);
             fs.writeFileSync(configPath, configContent, 'utf8');
             vscode.window.showInformationMessage('Configuration saved successfully!');

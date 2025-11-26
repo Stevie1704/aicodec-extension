@@ -770,7 +770,28 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
 
             if (result.success) {
                 if (clipboard) {
-                    vscode.window.showInformationMessage('Prompt copied to clipboard!');
+                    // In devcontainers, the CLI's clipboard may not work, but it falls back to writing a file
+                    // So we read the file and use VSCode's clipboard API which works in devcontainers
+                    const aicodecPath = getAicodecPath();
+                    if (aicodecPath) {
+                        const promptPath = path.join(aicodecPath, 'prompt.txt');
+                        try {
+                            // Check if the file was created (fallback behavior)
+                            if (fs.existsSync(promptPath)) {
+                                const content = fs.readFileSync(promptPath, 'utf8');
+                                await vscode.env.clipboard.writeText(content);
+                                vscode.window.showInformationMessage('Prompt copied to clipboard!');
+                            } else {
+                                // CLI successfully used native clipboard
+                                vscode.window.showInformationMessage('Prompt copied to clipboard!');
+                            }
+                        } catch (error) {
+                            console.error('Failed to read prompt file for clipboard:', error);
+                            vscode.window.showInformationMessage('Prompt copied to clipboard!');
+                        }
+                    } else {
+                        vscode.window.showInformationMessage('Prompt copied to clipboard!');
+                    }
                 } else {
                     vscode.window.showInformationMessage(
                         `Prompt generated successfully!\n${result.stdout}`

@@ -746,21 +746,6 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
             return; // User cancelled
         }
 
-        // Ask if they want minimal template
-        const templateChoice = await vscode.window.showQuickPick(
-            ['Full Template', 'Minimal Template'],
-            {
-                placeHolder: 'Select the prompt template to use',
-                canPickMany: false
-            }
-        );
-
-        if (!templateChoice) {
-            return; // User cancelled
-        }
-
-        const minimal = templateChoice === 'Minimal Template';
-
         // Ask if they want to copy to clipboard or save to file
         const outputChoice = await vscode.window.showQuickPick(
             ['Save to File', 'Copy to Clipboard'],
@@ -785,8 +770,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
             // This ensures it works reliably in devcontainers
             const result = await promptViaCli(cliPath, workspaceRoot, {
                 task: task.trim(), // Pass task from user input
-                // Don't pass techStack - let CLI use config.json value
-                minimal,
+                // All other options (minimal, techStack, etc.) come from config.json
                 clipboard: false,  // Always use file-based approach
                 skipEditor: true  // Skip external editor, open in VSCode instead
             });
@@ -816,16 +800,128 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
                         vscode.window.showErrorMessage('Failed to copy prompt to clipboard.');
                     }
                 } else {
-                    vscode.window.showInformationMessage(
-                        `Prompt generated successfully!\n${result.stdout}`
-                    );
-
-                    // Try to open the generated prompt file
+                    // Automatically open the generated prompt file
                     try {
                         const doc = await vscode.workspace.openTextDocument(promptPath);
                         await vscode.window.showTextDocument(doc);
+                        vscode.window.showInformationMessage('Prompt generated and opened successfully!');
                     } catch (error) {
                         console.error('Failed to open prompt.txt:', error);
+                        vscode.window.showErrorMessage(`Prompt generated but failed to open: ${error}`);
+                    }
+                }
+                refresh();
+            } else {
+                vscode.window.showErrorMessage(
+                    `Failed to generate prompt:\n${result.stderr}`
+                );
+            }
+        });
+    };
+
+    const runPromptNewProject = async () => {
+        // Ensure config.json exists
+        if (!await ensureConfigExists()) {
+            return;
+        }
+
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('No workspace folder is open.');
+            return;
+        }
+
+        const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+        const { available, cliPath, useFallback } = await ensureCliAvailable();
+
+        if (!available || !cliPath) {
+            if (!useFallback) {
+                return;
+            }
+            vscode.window.showWarningMessage('Prompt command requires the aicodec CLI. Please install it.');
+            return;
+        }
+
+        // Ask user for task description (specific to this prompt generation)
+        const task = await vscode.window.showInputBox({
+            prompt: 'Enter the project description for the new project',
+            placeHolder: 'e.g., Build a REST API for task management',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Project description is required';
+                }
+                return null;
+            }
+        });
+
+        if (task === undefined) {
+            return; // User cancelled
+        }
+
+        // Ask if they want to copy to clipboard or save to file
+        const outputChoice = await vscode.window.showQuickPick(
+            ['Save to File', 'Copy to Clipboard'],
+            {
+                placeHolder: 'How would you like to output the prompt?',
+                canPickMany: false
+            }
+        );
+
+        if (!outputChoice) {
+            return; // User cancelled
+        }
+
+        const clipboard = outputChoice === 'Copy to Clipboard';
+
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Generating prompt for new project...',
+            cancellable: false
+        }, async () => {
+            // Always generate file instead of using native clipboard
+            // This ensures it works reliably in devcontainers
+            const result = await promptViaCli(cliPath, workspaceRoot, {
+                task: task.trim(), // Pass task from user input
+                // All other options (minimal, techStack, etc.) come from config.json
+                clipboard: false,  // Always use file-based approach
+                skipEditor: true,  // Skip external editor, open in VSCode instead
+                newProject: true   // Enable new project mode
+            });
+
+            if (result.success) {
+                const aicodecPath = getAicodecPath();
+                if (!aicodecPath) {
+                    vscode.window.showErrorMessage('Could not find .aicodec directory');
+                    return;
+                }
+
+                const promptPath = path.join(aicodecPath, 'prompt.txt');
+
+                if (clipboard) {
+                    // Always read the file and copy to clipboard using VSCode's API
+                    // This works reliably in devcontainers
+                    try {
+                        if (fs.existsSync(promptPath)) {
+                            const content = fs.readFileSync(promptPath, 'utf8');
+                            await vscode.env.clipboard.writeText(content);
+                            vscode.window.showInformationMessage('New project prompt copied to clipboard!');
+                        } else {
+                            vscode.window.showErrorMessage('Prompt file not found. Please try again.');
+                        }
+                    } catch (error) {
+                        console.error('Failed to read prompt file for clipboard:', error);
+                        vscode.window.showErrorMessage('Failed to copy prompt to clipboard.');
+                    }
+                } else {
+                    // Automatically open the generated prompt file
+                    try {
+                        const doc = await vscode.workspace.openTextDocument(promptPath);
+                        await vscode.window.showTextDocument(doc);
+                        vscode.window.showInformationMessage('New project prompt generated and opened successfully!');
+                    } catch (error) {
+                        console.error('Failed to open prompt.txt:', error);
+                        vscode.window.showErrorMessage(`Prompt generated but failed to open: ${error}`);
                     }
                 }
                 refresh();
@@ -1010,6 +1106,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.aggregateForce', () => runAggregate(true)));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.buildmap', runBuildmap));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.prompt', runPrompt));
+    context.subscriptions.push(vscode.commands.registerCommand('aicodec.promptNewProject', runPromptNewProject));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.prepare', runPrepare));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.openFile', openFile));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.openDiff', openDiff));

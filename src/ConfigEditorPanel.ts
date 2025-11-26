@@ -17,6 +17,7 @@ interface AicodecConfig {
         tech_stack?: string;
         include_map: boolean;
         include_code: boolean;
+        new_project: boolean;
     };
     prepare: {
         changes: string;
@@ -155,7 +156,8 @@ export class ConfigEditorPanel {
                 minimal: false,                  // Default from init command (NO)
                 tech_stack: undefined,           // Optional field from init command
                 include_map: false,              // Default from init command (NO)
-                include_code: true               // Default from init command (YES)
+                include_code: true,              // Default from init command (YES)
+                new_project: false               // Default: not a new project
             },
             prepare: {
                 changes: '.aicodec/changes.json'
@@ -182,7 +184,8 @@ export class ConfigEditorPanel {
                 minimal: loadedConfig.prompt?.minimal ?? defaults.prompt.minimal,
                 tech_stack: loadedConfig.prompt?.tech_stack ?? defaults.prompt.tech_stack,
                 include_map: loadedConfig.prompt?.include_map ?? defaults.prompt.include_map,
-                include_code: loadedConfig.prompt?.include_code ?? defaults.prompt.include_code
+                include_code: loadedConfig.prompt?.include_code ?? defaults.prompt.include_code,
+                new_project: loadedConfig.prompt?.new_project ?? defaults.prompt.new_project
             },
             prepare: {
                 changes: loadedConfig.prepare?.changes ?? defaults.prepare.changes
@@ -459,6 +462,12 @@ export class ConfigEditorPanel {
                 <label for="include_code">Include Code Context</label>
             </div>
             <div class="help-text">Whether to include code in prompt by default</div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="new_project" name="new_project">
+                <label for="new_project">New Project Mode</label>
+            </div>
+            <div class="help-text">Generate prompts optimized for new projects (includes additional context)</div>
         </div>
 
         <!-- File Path Settings -->
@@ -530,6 +539,7 @@ export class ConfigEditorPanel {
             document.getElementById('tech_stack').value = config.prompt.tech_stack || '';
             document.getElementById('include_map').checked = config.prompt.include_map ?? false;
             document.getElementById('include_code').checked = config.prompt.include_code ?? true;
+            document.getElementById('new_project').checked = config.prompt.new_project ?? false;
 
             // File Paths
             document.getElementById('output_file').value = config.prompt.output_file || '.aicodec/prompt.txt';
@@ -551,7 +561,8 @@ export class ConfigEditorPanel {
                     minimal: document.getElementById('minimal').checked,
                     tech_stack: document.getElementById('tech_stack').value || undefined,
                     include_map: document.getElementById('include_map').checked,
-                    include_code: document.getElementById('include_code').checked
+                    include_code: document.getElementById('include_code').checked,
+                    new_project: document.getElementById('new_project').checked
                 },
                 prepare: {
                     changes: document.getElementById('changes').value

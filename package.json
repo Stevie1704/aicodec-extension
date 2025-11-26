@@ -2,7 +2,7 @@
     "name": "aicodec",
     "displayName": "AIcodec GUI",
     "description": "A VSCode GUI for the aicodec CLI tool.",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "publisher": "steviekra",
     "repository": {
         "type": "git",
@@ -115,6 +115,11 @@
                 "command": "aicodec.prompt",
                 "title": "AIcodec: Generate Prompt",
                 "icon": "$(file-code)"
+            },
+            {
+                "command": "aicodec.promptNewProject",
+                "title": "AIcodec: Generate Prompt for New Project",
+                "icon": "$(new-file)"
             },
             {
                 "command": "aicodec.prepare",

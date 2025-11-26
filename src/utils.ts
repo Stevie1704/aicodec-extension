@@ -150,8 +150,8 @@ export async function ensureConfigExists(): Promise<boolean> {
                 "include_code": true,
                 "include_map": false,
                 "minimal": false,
-                "output_file": ".aicodec/prompt.txt",
-                "clipboard": false
+                "new_project": false,
+                "output_file": ".aicodec/prompt.txt"
             },
             "prepare": {
                 "changes": ".aicodec/changes.json"

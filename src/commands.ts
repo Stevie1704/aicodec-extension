@@ -760,37 +760,39 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
             title: 'Generating prompt...',
             cancellable: false
         }, async () => {
+            // Always generate file instead of using native clipboard
+            // This ensures it works reliably in devcontainers
             const result = await promptViaCli(cliPath, workspaceRoot, {
                 task: task.trim(), // Pass task from user input
                 // Don't pass techStack - let CLI use config.json value
                 minimal,
-                clipboard,
+                clipboard: false,  // Always use file-based approach
                 skipEditor: true  // Skip external editor, open in VSCode instead
             });
 
             if (result.success) {
+                const aicodecPath = getAicodecPath();
+                if (!aicodecPath) {
+                    vscode.window.showErrorMessage('Could not find .aicodec directory');
+                    return;
+                }
+
+                const promptPath = path.join(aicodecPath, 'prompt.txt');
+
                 if (clipboard) {
-                    // In devcontainers, the CLI's clipboard may not work, but it falls back to writing a file
-                    // So we read the file and use VSCode's clipboard API which works in devcontainers
-                    const aicodecPath = getAicodecPath();
-                    if (aicodecPath) {
-                        const promptPath = path.join(aicodecPath, 'prompt.txt');
-                        try {
-                            // Check if the file was created (fallback behavior)
-                            if (fs.existsSync(promptPath)) {
-                                const content = fs.readFileSync(promptPath, 'utf8');
-                                await vscode.env.clipboard.writeText(content);
-                                vscode.window.showInformationMessage('Prompt copied to clipboard!');
-                            } else {
-                                // CLI successfully used native clipboard
-                                vscode.window.showInformationMessage('Prompt copied to clipboard!');
-                            }
-                        } catch (error) {
-                            console.error('Failed to read prompt file for clipboard:', error);
+                    // Always read the file and copy to clipboard using VSCode's API
+                    // This works reliably in devcontainers
+                    try {
+                        if (fs.existsSync(promptPath)) {
+                            const content = fs.readFileSync(promptPath, 'utf8');
+                            await vscode.env.clipboard.writeText(content);
                             vscode.window.showInformationMessage('Prompt copied to clipboard!');
+                        } else {
+                            vscode.window.showErrorMessage('Prompt file not found. Please try again.');
                         }
-                    } else {
-                        vscode.window.showInformationMessage('Prompt copied to clipboard!');
+                    } catch (error) {
+                        console.error('Failed to read prompt file for clipboard:', error);
+                        vscode.window.showErrorMessage('Failed to copy prompt to clipboard.');
                     }
                 } else {
                     vscode.window.showInformationMessage(
@@ -798,15 +800,11 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
                     );
 
                     // Try to open the generated prompt file
-                    const aicodecPath = getAicodecPath();
-                    if (aicodecPath) {
-                        const promptPath = path.join(aicodecPath, 'prompt.txt');
-                        try {
-                            const doc = await vscode.workspace.openTextDocument(promptPath);
-                            await vscode.window.showTextDocument(doc);
-                        } catch (error) {
-                            console.error('Failed to open prompt.txt:', error);
-                        }
+                    try {
+                        const doc = await vscode.workspace.openTextDocument(promptPath);
+                        await vscode.window.showTextDocument(doc);
+                    } catch (error) {
+                        console.error('Failed to open prompt.txt:', error);
                     }
                 }
                 refresh();

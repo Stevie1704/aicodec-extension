@@ -2,7 +2,7 @@
     "name": "aicodec",
     "displayName": "AIcodec GUI",
     "description": "A VSCode GUI for the aicodec CLI tool.",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "publisher": "steviekra",
     "repository": {
         "type": "git",

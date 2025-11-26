@@ -244,7 +244,7 @@ export async function applyChangesViaCli(
     const args = ['apply'];
 
     if (filePaths && filePaths.length > 0) {
-        args.push('--files', ...filePaths);
+        args.push('--files', ...filePaths.map(path => `"${path}"`));
     } else {
         args.push('--all');
     }
@@ -263,7 +263,7 @@ export async function revertChangesViaCli(
     const args = ['revert'];
 
     if (filePaths && filePaths.length > 0) {
-        args.push('--files', ...filePaths);
+        args.push('--files', ...filePaths.map(path => `"${path}"`));
     } else {
         args.push('--all');
     }
@@ -353,17 +353,17 @@ export async function promptViaCli(
 
     // Always pass --task, even if empty string, to override CLI default placeholder
     if (options.task !== undefined) {
-        args.push('--task', options.task);
+        args.push('--task', `"${options.task}"`);
     }
     if (options.minimal) {
         args.push('--minimal');
     }
     // Always pass --tech-stack if provided, even if empty string
     if (options.techStack !== undefined) {
-        args.push('--tech-stack', options.techStack);
+        args.push('--tech-stack', `"${options.techStack}"`);
     }
     if (options.outputFile) {
-        args.push('--output-file', options.outputFile);
+        args.push('--output-file', `"${options.outputFile}"`);
     }
     if (options.clipboard) {
         args.push('--clipboard');
@@ -405,7 +405,7 @@ export async function prepareViaCli(
     const args = ['prepare'];
 
     if (options.changesFile) {
-        args.push('--changes', options.changesFile);
+        args.push('--changes', `"${options.changesFile}"`);
     }
     if (options.fromClipboard) {
         args.push('--from-clipboard');

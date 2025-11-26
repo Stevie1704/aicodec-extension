@@ -143,6 +143,11 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.createTreeView('aicodec.changesView', { treeDataProvider: changesProvider });
     vscode.window.createTreeView('aicodec.revertsView', { treeDataProvider: revertsProvider });
 
+    // Register tree data providers for disposal (to clean up file watchers)
+    context.subscriptions.push(aggregatesProvider);
+    context.subscriptions.push(changesProvider);
+    context.subscriptions.push(revertsProvider);
+
     const contentProvider = new AicodecContentProvider();
     context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('aicodec-readonly', contentProvider));
     context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('aicodec-empty', contentProvider));

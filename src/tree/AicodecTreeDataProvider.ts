@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { AicodecTreeItem } from './AicodecTreeItem';
 import { getAicodecPath, readAicodecJson, AicodecFile } from '../utils';
 
@@ -9,10 +10,84 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
 
     // Store the flat list of file paths, not a pre-built tree
     private relativeFilePaths: string[] | undefined;
-    // Store full file data for reverts (with session info)
+    // Store full file data for reverts (with session info) and changes (with content)
     private fileData: AicodecFile[] | undefined;
+    // File system watcher for changes.json files to auto-update colors
+    private fileWatcher: vscode.FileSystemWatcher | undefined;
 
-    constructor(private jsonFileName: string) {}
+    constructor(private jsonFileName: string) {
+        // Set up file watcher for changes.json to auto-refresh when files are modified
+        if (this.jsonFileName === 'changes.json') {
+            this.setupFileWatcher();
+        }
+    }
+
+    /**
+     * Sets up a file system watcher to automatically refresh the tree
+     * when files in changes.json are modified.
+     */
+    private setupFileWatcher(): void {
+        // Watch all files in the workspace
+        this.fileWatcher = vscode.workspace.createFileSystemWatcher('**/*');
+
+        // Refresh when any file changes
+        this.fileWatcher.onDidChange((uri) => {
+            // Only refresh if this file is in our changes list
+            if (this.relativeFilePaths) {
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                if (workspaceFolders) {
+                    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+                    const relativePath = path.relative(workspaceRoot, uri.fsPath);
+
+                    // Check if this file is in our changes list
+                    if (this.relativeFilePaths.some(p => p === relativePath || p === relativePath.split(path.sep).join('/'))) {
+                        console.log(`[AicodecTreeDataProvider] File changed: ${relativePath}, refreshing tree`);
+                        this._onDidChangeTreeData.fire();
+                    }
+                }
+            }
+        });
+
+        // Also refresh when files are created or deleted
+        this.fileWatcher.onDidCreate((uri) => {
+            if (this.relativeFilePaths) {
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                if (workspaceFolders) {
+                    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+                    const relativePath = path.relative(workspaceRoot, uri.fsPath);
+
+                    if (this.relativeFilePaths.some(p => p === relativePath || p === relativePath.split(path.sep).join('/'))) {
+                        console.log(`[AicodecTreeDataProvider] File created: ${relativePath}, refreshing tree`);
+                        this._onDidChangeTreeData.fire();
+                    }
+                }
+            }
+        });
+
+        this.fileWatcher.onDidDelete((uri) => {
+            if (this.relativeFilePaths) {
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                if (workspaceFolders) {
+                    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+                    const relativePath = path.relative(workspaceRoot, uri.fsPath);
+
+                    if (this.relativeFilePaths.some(p => p === relativePath || p === relativePath.split(path.sep).join('/'))) {
+                        console.log(`[AicodecTreeDataProvider] File deleted: ${relativePath}, refreshing tree`);
+                        this._onDidChangeTreeData.fire();
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Disposes of the file system watcher.
+     */
+    dispose(): void {
+        if (this.fileWatcher) {
+            this.fileWatcher.dispose();
+        }
+    }
 
     refresh(): void {
         // Clear the cache to force a re-read on the next expansion
@@ -38,8 +113,8 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
         }
         const fileList = await readAicodecJson(aicodecPath, this.jsonFileName);
 
-        // Store full file data for reverts (needed for session grouping)
-        if (this.jsonFileName === 'revert.json') {
+        // Store full file data for reverts (needed for session grouping) and changes (needed for comparison)
+        if (this.jsonFileName === 'revert.json' || this.jsonFileName === 'changes.json') {
             this.fileData = fileList;
         }
 
@@ -47,6 +122,58 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
         this.relativeFilePaths = fileList
             .map(f => f.filePath)
             .filter(p => p && p.trim() !== '');
+    }
+
+    /**
+     * Checks if a change has been applied by comparing the proposed content
+     * with the actual file content on disk.
+     */
+    private isChangeApplied(filePath: string): boolean {
+        if (!this.fileData) {
+            console.log(`[AicodecTreeDataProvider] No file data for ${filePath}`);
+            return false;
+        }
+
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            console.log(`[AicodecTreeDataProvider] No workspace folders`);
+            return false;
+        }
+
+        const workspaceRoot = workspaceFolders[0].uri.fsPath;
+        const absolutePath = path.join(workspaceRoot, filePath);
+
+        // Find the proposed content from changes.json
+        const changeData = this.fileData.find(f => f.filePath === filePath);
+        if (!changeData) {
+            console.log(`[AicodecTreeDataProvider] No change data found for ${filePath}`);
+            return false;
+        }
+
+        const proposedContent = changeData.content;
+
+        // Read the actual file content from disk
+        try {
+            if (!fs.existsSync(absolutePath)) {
+                const result = proposedContent === '';
+                console.log(`[AicodecTreeDataProvider] File doesn't exist: ${filePath}, isApplied=${result}`);
+                return result;
+            }
+
+            const actualContent = fs.readFileSync(absolutePath, 'utf8');
+
+            // Compare contents - normalize line endings for comparison
+            const normalizedProposed = proposedContent.replace(/\r\n/g, '\n');
+            const normalizedActual = actualContent.replace(/\r\n/g, '\n');
+
+            const isMatch = normalizedProposed === normalizedActual;
+            console.log(`[AicodecTreeDataProvider] Comparing ${filePath}: isApplied=${isMatch}`);
+
+            return isMatch;
+        } catch (error) {
+            console.error(`[AicodecTreeDataProvider] Error checking if change is applied for ${filePath}:`, error);
+            return false;
+        }
     }
 
     // This is the core of the lazy-loading logic
@@ -254,7 +381,17 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
             const collapsibleState = child.isFile
                 ? vscode.TreeItemCollapsibleState.None
                 : vscode.TreeItemCollapsibleState.Collapsed; // Use Collapsed for lazy loading
-            return new AicodecTreeItem(key, collapsibleState, child.fullPath, child.isFile, this.jsonFileName);
+
+            // For changes.json files, check if the change is applied
+            let isApplied: boolean | undefined = undefined;
+            if (this.jsonFileName === 'changes.json' && child.isFile && workspaceRoot) {
+                // Reconstruct the full relative path from workspace root to this file
+                const fullRelativePath = path.relative(workspaceRoot, child.fullPath);
+                isApplied = this.isChangeApplied(fullRelativePath);
+                console.log(`[AicodecTreeDataProvider] Creating tree item for ${key}: isApplied=${isApplied}`);
+            }
+
+            return new AicodecTreeItem(key, collapsibleState, child.fullPath, child.isFile, this.jsonFileName, isApplied);
         });
     }
 }

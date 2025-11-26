@@ -17,11 +17,9 @@ interface AicodecConfig {
         tech_stack?: string;
         include_map: boolean;
         include_code: boolean;
-        clipboard: boolean;
     };
     prepare: {
         changes: string;
-        from_clipboard: boolean;
     };
     apply: {
         output_dir: string;
@@ -157,12 +155,10 @@ export class ConfigEditorPanel {
                 minimal: false,                  // Default from init command (NO)
                 tech_stack: undefined,           // Optional field from init command
                 include_map: false,              // Default from init command (NO)
-                include_code: true,              // Default from init command (YES)
-                clipboard: false                 // Always false as per requirement
+                include_code: true               // Default from init command (YES)
             },
             prepare: {
-                changes: '.aicodec/changes.json',
-                from_clipboard: false            // Always false as per requirement
+                changes: '.aicodec/changes.json'
             },
             apply: {
                 output_dir: '.'
@@ -186,12 +182,10 @@ export class ConfigEditorPanel {
                 minimal: loadedConfig.prompt?.minimal ?? defaults.prompt.minimal,
                 tech_stack: loadedConfig.prompt?.tech_stack ?? defaults.prompt.tech_stack,
                 include_map: loadedConfig.prompt?.include_map ?? defaults.prompt.include_map,
-                include_code: loadedConfig.prompt?.include_code ?? defaults.prompt.include_code,
-                clipboard: false  // Always false as per requirement
+                include_code: loadedConfig.prompt?.include_code ?? defaults.prompt.include_code
             },
             prepare: {
-                changes: loadedConfig.prepare?.changes ?? defaults.prepare.changes,
-                from_clipboard: false  // Always false as per requirement
+                changes: loadedConfig.prepare?.changes ?? defaults.prepare.changes
             },
             apply: {
                 output_dir: loadedConfig.apply?.output_dir ?? defaults.apply.output_dir
@@ -465,18 +459,6 @@ export class ConfigEditorPanel {
                 <label for="include_code">Include Code Context</label>
             </div>
             <div class="help-text">Whether to include code in prompt by default</div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="from_clipboard" name="from_clipboard" disabled>
-                <label for="from_clipboard">Read LLM Output from Clipboard (Always Disabled)</label>
-            </div>
-            <div class="help-text">This feature is disabled in the extension - use file-based workflow instead</div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="clipboard" name="clipboard" disabled>
-                <label for="clipboard">Copy Prompt to Clipboard (Always Disabled)</label>
-            </div>
-            <div class="help-text">This feature is disabled in the extension - use file-based workflow instead</div>
         </div>
 
         <!-- File Path Settings -->
@@ -548,8 +530,6 @@ export class ConfigEditorPanel {
             document.getElementById('tech_stack').value = config.prompt.tech_stack || '';
             document.getElementById('include_map').checked = config.prompt.include_map ?? false;
             document.getElementById('include_code').checked = config.prompt.include_code ?? true;
-            document.getElementById('from_clipboard').checked = config.prepare.from_clipboard ?? false;
-            document.getElementById('clipboard').checked = config.prompt.clipboard ?? false;
 
             // File Paths
             document.getElementById('output_file').value = config.prompt.output_file || '.aicodec/prompt.txt';
@@ -571,12 +551,10 @@ export class ConfigEditorPanel {
                     minimal: document.getElementById('minimal').checked,
                     tech_stack: document.getElementById('tech_stack').value || undefined,
                     include_map: document.getElementById('include_map').checked,
-                    include_code: document.getElementById('include_code').checked,
-                    clipboard: document.getElementById('clipboard').checked
+                    include_code: document.getElementById('include_code').checked
                 },
                 prepare: {
-                    changes: document.getElementById('changes').value,
-                    from_clipboard: document.getElementById('from_clipboard').checked
+                    changes: document.getElementById('changes').value
                 },
                 apply: {
                     output_dir: document.getElementById('output_dir').value

@@ -178,6 +178,11 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
 
     // This is the core of the lazy-loading logic
     async getChildren(element?: AicodecTreeItem): Promise<AicodecTreeItem[]> {
+        console.log(`[AicodecTreeDataProvider] getChildren called for ${this.jsonFileName}, element:`, element ? element.label : 'root');
+        if (element) {
+            console.log(`[AicodecTreeDataProvider] Element details: isFile=${element.isFile}, jsonSourceFile=${element.jsonSourceFile}, collapsibleState=${element.collapsibleState}`);
+        }
+
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!getAicodecPath() || !workspaceFolders) {
             return [];
@@ -199,6 +204,37 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
             return [new AicodecTreeItem(message, vscode.TreeItemCollapsibleState.None)];
         }
 
+        // Handle expanding a file with multiple sessions - MUST BE CHECKED BEFORE main revert processing
+        if (this.jsonFileName === 'revert.json' && element &&
+            element.jsonSourceFile === 'revert-multi-session') {
+            console.log(`[AicodecTreeDataProvider] Expanding multi-session file: ${element.label}`);
+            const sessions = (element as any)._sessions as string[];
+            const filePath = (element as any)._multiSessionPath as string;
+
+            console.log(`[AicodecTreeDataProvider] Sessions for ${element.label}:`, sessions);
+            console.log(`[AicodecTreeDataProvider] Multi-session path: ${filePath}`);
+
+            const sessionItems = sessions.sort((a, b) => b.localeCompare(a)).map(sessionName => {
+                // Extract session number
+                const match = sessionName.match(/revert-(\d+)\.json/);
+                const sessionNum = match ? parseInt(match[1], 10) : 0;
+                const label = `Session ${sessionNum}`;
+
+                console.log(`[AicodecTreeDataProvider] Creating session item: ${label} for ${sessionName}`);
+
+                return new AicodecTreeItem(
+                    label,
+                    vscode.TreeItemCollapsibleState.None,
+                    element.fullPath,
+                    true, // It's a file (session variant)
+                    sessionName
+                );
+            });
+
+            console.log(`[AicodecTreeDataProvider] Returning ${sessionItems.length} session items`);
+            return sessionItems;
+        }
+
         // Special handling for revert files - show unified tree with session subfolders for duplicates
         if (this.jsonFileName === 'revert.json') {
             if (!this.fileData || this.fileData.length === 0) {
@@ -207,14 +243,27 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
 
             const workspaceRoot = workspaceFolders[0].uri.fsPath;
 
+            console.log(`[AicodecTreeDataProvider] Processing ${this.fileData.length} revert files`);
+
             // Build a map of file paths to their sessions
             const fileToSessions = new Map<string, Set<string>>();
             for (const file of this.fileData) {
-                if (!fileToSessions.has(file.filePath)) {
-                    fileToSessions.set(file.filePath, new Set());
+                // Normalize the file path to use consistent separators
+                const normalizedPath = file.filePath.split(/[\\/]/).join('/');
+
+                if (!fileToSessions.has(normalizedPath)) {
+                    fileToSessions.set(normalizedPath, new Set());
                 }
                 if (file.revertSession) {
-                    fileToSessions.get(file.filePath)!.add(file.revertSession);
+                    fileToSessions.get(normalizedPath)!.add(file.revertSession);
+                    console.log(`[AicodecTreeDataProvider] Added session ${file.revertSession} for file ${normalizedPath}`);
+                }
+            }
+
+            // Log session counts
+            for (const [filePath, sessions] of fileToSessions.entries()) {
+                if (sessions.size > 1) {
+                    console.log(`[AicodecTreeDataProvider] File ${filePath} has ${sessions.size} sessions: ${Array.from(sessions).join(', ')}`);
                 }
             }
 
@@ -247,13 +296,14 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
                 originalPath: string;
             }>();
 
-            for (const [filePath, sessions] of fileToSessions.entries()) {
+            for (const [normalizedFilePath, sessions] of fileToSessions.entries()) {
                 // If we're inside a session folder, only show files from that session
                 if (isInsideSessionFolder && currentSessionName && !sessions.has(currentSessionName)) {
                     continue;
                 }
 
-                const normalizedPath = filePath.split(/[\\/]/).join(path.sep);
+                // Use path.sep for OS-specific separators
+                const normalizedPath = normalizedFilePath.split(/[\\/]/).join(path.sep);
                 const normalizedParent = parentRelativePath.split(/[\\/]/).join(path.sep);
 
                 if (normalizedParent && !normalizedPath.startsWith(normalizedParent + path.sep)) {
@@ -276,7 +326,7 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
                             fullPath,
                             isFile,
                             sessions: new Set(sessions),
-                            originalPath: filePath
+                            originalPath: normalizedFilePath  // Use the normalized path
                         });
                     } else {
                         // Merge sessions if multiple files map to same child
@@ -284,6 +334,8 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
                         sessions.forEach(s => existing.sessions.add(s));
                     }
                 }
+
+                console.log(`[AicodecTreeDataProvider] Child ${childName || 'unnamed'}: isFile=${segments.length === 1}, sessions=${sessions.size}`);
             }
 
             const sortedKeys = Array.from(children.keys()).sort();
@@ -292,8 +344,11 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
                 const child = children.get(key)!;
                 const sessionCount = child.sessions.size;
 
+                console.log(`[AicodecTreeDataProvider] Creating tree item for ${key}: isFile=${child.isFile}, sessionCount=${sessionCount}, isInsideSessionFolder=${isInsideSessionFolder}`);
+
                 // If file appears in multiple sessions AND we're not already in a session folder
                 if (child.isFile && sessionCount > 1 && !isInsideSessionFolder) {
+                    console.log(`[AicodecTreeDataProvider] ${key} has multiple sessions, creating multi-session folder`);
                     // Make it a folder with session children
                     const item = new AicodecTreeItem(
                         key,
@@ -315,28 +370,6 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
                     const sessionName = isInsideSessionFolder ? currentSessionName : Array.from(child.sessions)[0];
                     return new AicodecTreeItem(key, collapsibleState, child.fullPath, child.isFile, sessionName);
                 }
-            });
-        }
-
-        // Handle expanding a file with multiple sessions - show session options
-        if (this.jsonFileName === 'revert.json' && element &&
-            element.jsonSourceFile === 'revert-multi-session') {
-            const sessions = (element as any)._sessions as string[];
-            const filePath = (element as any)._multiSessionPath as string;
-
-            return sessions.sort((a, b) => b.localeCompare(a)).map(sessionName => {
-                // Extract session number
-                const match = sessionName.match(/revert-(\d+)\.json/);
-                const sessionNum = match ? parseInt(match[1], 10) : 0;
-                const label = `Session ${sessionNum}`;
-
-                return new AicodecTreeItem(
-                    label,
-                    vscode.TreeItemCollapsibleState.None,
-                    element.fullPath,
-                    true, // It's a file (session variant)
-                    sessionName
-                );
             });
         }
 

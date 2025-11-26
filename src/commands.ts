@@ -363,15 +363,22 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
         const workspaceRoot = workspaceFolders[0].uri.fsPath;
         const relativePath = path.relative(workspaceRoot, item.fullPath);
 
+        // Check if this is a session-specific revert (has a specific revert-XXX.json file)
+        const isSessionSpecificRevert = jsonFile === 'revert.json' &&
+                                        item.jsonSourceFile &&
+                                        item.jsonSourceFile.startsWith('revert-');
+
         // Check if we should use CLI
         const config = vscode.workspace.getConfiguration('aicodec');
         const useCli = config.get<boolean>('useCli', true);
 
-        if (useCli) {
+        // IMPORTANT: Always use fallback mode for session-specific reverts
+        // because the CLI doesn't support reverting to a specific session
+        if (useCli && !isSessionSpecificRevert) {
             const { available, cliPath, useFallback } = await ensureCliAvailable();
 
             if (available && cliPath) {
-                // Use CLI for single file
+                // Use CLI for single file (but not for session-specific reverts)
                 const isApply = jsonFile === 'changes.json';
                 const result = isApply
                     ? await applyChangesViaCli(cliPath, workspaceRoot, [relativePath])
@@ -392,12 +399,13 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
             // Continue with fallback below
         }
 
-        // Fallback: TypeScript implementation
+        // Fallback: TypeScript implementation (used for all session-specific reverts)
         let files: AicodecFile[];
 
         // For revert files with sessions, read from specific revert file
         if (jsonFile === 'revert.json' && item.jsonSourceFile && item.jsonSourceFile.startsWith('revert-')) {
             const revertFilePath = path.join(aicodecPath, 'reverts', item.jsonSourceFile);
+            console.log(`[Commands] Reverting to specific session: ${item.jsonSourceFile} for ${relativePath}`);
             try {
                 const content = fs.readFileSync(revertFilePath, 'utf8');
                 const data = JSON.parse(content);
@@ -405,6 +413,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
                     filePath: c.filePath,
                     content: c.content || ''
                 }));
+                console.log(`[Commands] Loaded ${files.length} files from ${item.jsonSourceFile}`);
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to read revert file ${item.jsonSourceFile}: ${error}`);
                 return;
@@ -420,15 +429,27 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
             try {
                 const fileUri = vscode.Uri.file(item.fullPath);
 
-                // Ensure parent directories exist
-                const parentDir = path.dirname(item.fullPath);
-                if (!fs.existsSync(parentDir)) {
-                    fs.mkdirSync(parentDir, { recursive: true });
-                }
+                // Check if the file should be deleted (empty content means file didn't exist in this state)
+                if (targetFile.content === '' || targetFile.content === null || targetFile.content === undefined) {
+                    console.log(`[Commands] Deleting ${relativePath} (empty content in revert state)`);
+                    // Delete the file if it exists
+                    if (fs.existsSync(item.fullPath)) {
+                        await vscode.workspace.fs.delete(fileUri);
+                        vscode.window.showInformationMessage(`Deleted ${relativePath} (reverted to state where file didn't exist)`);
+                    } else {
+                        vscode.window.showInformationMessage(`${relativePath} already doesn't exist (already in reverted state)`);
+                    }
+                } else {
+                    // Ensure parent directories exist
+                    const parentDir = path.dirname(item.fullPath);
+                    if (!fs.existsSync(parentDir)) {
+                        fs.mkdirSync(parentDir, { recursive: true });
+                    }
 
-                const newContent = Buffer.from(targetFile.content, 'utf8');
-                await vscode.workspace.fs.writeFile(fileUri, newContent);
-                vscode.window.showInformationMessage(`Updated ${relativePath} (using built-in implementation)`);
+                    const newContent = Buffer.from(targetFile.content, 'utf8');
+                    await vscode.workspace.fs.writeFile(fileUri, newContent);
+                    vscode.window.showInformationMessage(`Updated ${relativePath} (using built-in implementation)`);
+                }
                 refresh();
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to write file ${relativePath}: ${error}`);

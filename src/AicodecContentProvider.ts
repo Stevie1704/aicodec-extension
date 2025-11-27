@@ -17,8 +17,29 @@ export class AicodecContentProvider implements vscode.TextDocumentContentProvide
 
         try {
             const files = await readAicodecJson(aicodecPath, jsonFile);
+            console.log(`[AicodecContentProvider] Looking for: ${relativePath}`);
+            console.log(`[AicodecContentProvider] Available files in ${jsonFile}:`, files.map(f => f.filePath));
+
             const targetFile = files.find(f => f.filePath === relativePath);
-            return targetFile?.content || `// Content for ${relativePath} not found in ${jsonFile}`;
+
+            if (!targetFile) {
+                console.log(`[AicodecContentProvider] No exact match found. Trying normalized comparison...`);
+                // Try normalized path comparison (handle forward slash vs backslash)
+                const normalizedSearch = relativePath.split('\\').join('/');
+                const targetFileNormalized = files.find(f => f.filePath.split('\\').join('/') === normalizedSearch);
+
+                if (targetFileNormalized) {
+                    console.log(`[AicodecContentProvider] Found match with normalized paths!`);
+                    return targetFileNormalized.content ?? '';
+                }
+            }
+
+            if (targetFile) {
+                console.log(`[AicodecContentProvider] Found file, content length: ${targetFile.content?.length ?? 'undefined'}`);
+                return targetFile.content ?? '';
+            }
+
+            return `// Content for ${relativePath} not found in ${jsonFile}`;
         } catch (e) {
             console.error(e);
             return `Error loading content for ${uri.toString()}. See console for details.`;

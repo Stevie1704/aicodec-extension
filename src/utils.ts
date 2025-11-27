@@ -24,6 +24,28 @@ export async function readAicodecJson(aicodecPath: string, fileName: string): Pr
         return readRevertFiles(aicodecPath);
     }
 
+    // Special handling for specific revert session files (e.g., revert-001.json)
+    if (fileName.startsWith('revert-') && fileName.endsWith('.json')) {
+        const filePath = path.join(aicodecPath, 'reverts', fileName);
+        try {
+            const fileUri = vscode.Uri.file(filePath);
+            const fileContents = await vscode.workspace.fs.readFile(fileUri);
+            const text = Buffer.from(fileContents).toString('utf8');
+            const data = JSON.parse(text);
+
+            // Revert files have the format: { changes: [...] }
+            const changes = data.changes || [];
+            return changes.filter((item: any) => item && typeof item.filePath === 'string');
+        } catch (error) {
+            if (error instanceof vscode.FileSystemError && error.code === 'FileNotFound') {
+                return []; // Not an error, the file may not exist yet.
+            }
+            console.error(`Error reading or parsing ${fileName}:`, error);
+            vscode.window.showErrorMessage(`Failed to read or parse ${fileName}. See debug console for details.`);
+            return [];
+        }
+    }
+
     const filePath = path.join(aicodecPath, fileName);
     try {
         const fileUri = vscode.Uri.file(filePath);

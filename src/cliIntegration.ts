@@ -393,6 +393,18 @@ export async function updateViaCli(
 }
 
 /**
+ * Checks if aicodec CLI was installed via pip.
+ */
+export async function isInstalledViaPip(): Promise<boolean> {
+    try {
+        const { stdout } = await execAsync('pip show aicodec', { timeout: 5000 });
+        return stdout.includes('Name: aicodec');
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Generates a prompt file with aggregated context using the CLI.
  */
 export async function promptViaCli(

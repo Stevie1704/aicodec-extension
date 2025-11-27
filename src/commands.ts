@@ -17,7 +17,9 @@ import {
     checkForUpdatesViaCli,
     updateViaCli,
     getCliVersion,
-    compareVersions
+    compareVersions,
+    findAicodecCli,
+    isInstalledViaPip
 } from './cliIntegration';
 
 /**
@@ -1281,6 +1283,93 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
         });
     };
 
+    const installCli = async () => {
+        // Check if CLI is already installed
+        const cliPath = await findAicodecCli();
+
+        if (cliPath) {
+            vscode.window.showInformationMessage('aicodec CLI is already installed.');
+            return;
+        }
+
+        // Prompt user to install
+        const install = 'Install Now';
+        const cancel = 'Cancel';
+
+        const choice = await vscode.window.showInformationMessage(
+            'aicodec CLI is not installed. Would you like to install it now?',
+            install,
+            cancel
+        );
+
+        if (choice === install) {
+            const terminal = vscode.window.createTerminal('Install aicodec');
+            terminal.show();
+
+            const isWindows = process.platform === 'win32';
+
+            if (isWindows) {
+                terminal.sendText('powershell -Command "irm https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.ps1 | iex"');
+            } else {
+                terminal.sendText('curl -sSL https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.sh | bash');
+            }
+
+            vscode.window.showInformationMessage(
+                'Installing aicodec CLI... Please wait for the installation to complete in the terminal.',
+                'OK'
+            );
+        }
+    };
+
+    const uninstallCli = async () => {
+        // Check if CLI is installed
+        const cliPath = await findAicodecCli();
+
+        if (!cliPath) {
+            vscode.window.showInformationMessage('aicodec CLI is not installed.');
+            return;
+        }
+
+        // Check if installed via pip
+        const isPip = await isInstalledViaPip();
+
+        if (isPip) {
+            vscode.window.showWarningMessage(
+                'aicodec CLI was installed via pip. Please use pip to uninstall:\n\npip uninstall aicodec'
+            );
+            return;
+        }
+
+        // Prompt user to uninstall
+        const uninstall = 'Uninstall Now';
+        const cancel = 'Cancel';
+
+        const choice = await vscode.window.showWarningMessage(
+            'Are you sure you want to uninstall aicodec CLI?',
+            { modal: true },
+            uninstall,
+            cancel
+        );
+
+        if (choice === uninstall) {
+            const terminal = vscode.window.createTerminal('Uninstall aicodec');
+            terminal.show();
+
+            const isWindows = process.platform === 'win32';
+
+            if (isWindows) {
+                terminal.sendText('powershell -Command "irm https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/uninstall.ps1 | iex"');
+            } else {
+                terminal.sendText('curl -sSL https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/uninstall.sh | bash');
+            }
+
+            vscode.window.showInformationMessage(
+                'Uninstalling aicodec CLI... Please wait for the uninstallation to complete in the terminal.',
+                'OK'
+            );
+        }
+    };
+
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.setPath', setAicodecPath));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.editConfig', openConfigEditor));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.refresh', refresh));
@@ -1302,4 +1391,6 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.startNewSession', startNewSession));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.checkForUpdates', checkForUpdates));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.update', runUpdate));
+    context.subscriptions.push(vscode.commands.registerCommand('aicodec.installCli', installCli));
+    context.subscriptions.push(vscode.commands.registerCommand('aicodec.uninstallCli', uninstallCli));
 }

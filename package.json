@@ -2,7 +2,7 @@
     "name": "aicodec",
     "displayName": "AIcodec GUI",
     "description": "A VSCode GUI for the aicodec CLI tool.",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "publisher": "steviekra",
     "repository": {
         "type": "git",
@@ -49,6 +49,12 @@
                     "default": true,
                     "description": "Use the aicodec CLI for apply/revert operations (recommended). When disabled, uses built-in TypeScript implementation (no session management or revert.json creation).",
                     "scope": "resource"
+                },
+                "aicodec.checkForUpdates": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically check for aicodec CLI updates when VSCode starts.",
+                    "scope": "machine"
                 }
             }
         },
@@ -110,6 +116,16 @@
                 "command": "aicodec.buildmap",
                 "title": "AIcodec: Build Repository Map",
                 "icon": "$(file-directory)"
+            },
+            {
+                "command": "aicodec.checkForUpdates",
+                "title": "AIcodec: Check for Updates",
+                "icon": "$(search)"
+            },
+            {
+                "command": "aicodec.update",
+                "title": "AIcodec: Update CLI",
+                "icon": "$(cloud-download)"
             },
             {
                 "command": "aicodec.prompt",

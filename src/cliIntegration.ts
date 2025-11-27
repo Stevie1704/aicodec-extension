@@ -330,6 +330,69 @@ export async function buildmapViaCli(
 }
 
 /**
+ * Gets the version of the aicodec CLI.
+ */
+export async function getCliVersion(
+    cliPath: string,
+    projectRoot: string
+): Promise<string | null> {
+    try {
+        const result = await executeCliCommand(cliPath, ['-v'], projectRoot);
+        if (result.success && result.stdout) {
+            // Parse version from output (e.g., "aicodec version 2.11.3")
+            const match = result.stdout.match(/(\d+\.\d+\.\d+)/);
+            return match ? match[1] : null;
+        }
+        return null;
+    } catch (error) {
+        console.error('Failed to get CLI version:', error);
+        return null;
+    }
+}
+
+/**
+ * Compares two semantic version strings.
+ * Returns: -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
+ */
+export function compareVersions(v1: string, v2: string): number {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const part1 = parts1[i] || 0;
+        const part2 = parts2[i] || 0;
+
+        if (part1 < part2) return -1;
+        if (part1 > part2) return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * Checks for aicodec CLI updates (non-intrusive check only).
+ * Requires aicodec >= 2.11.0
+ */
+export async function checkForUpdatesViaCli(
+    cliPath: string,
+    projectRoot: string
+): Promise<CliResult> {
+    const args = ['update', '--check'];
+    return executeCliCommand(cliPath, args, projectRoot);
+}
+
+/**
+ * Updates aicodec CLI to the latest version.
+ */
+export async function updateViaCli(
+    cliPath: string,
+    projectRoot: string
+): Promise<CliResult> {
+    const args = ['update'];
+    return executeCliCommand(cliPath, args, projectRoot);
+}
+
+/**
  * Generates a prompt file with aggregated context using the CLI.
  */
 export async function promptViaCli(

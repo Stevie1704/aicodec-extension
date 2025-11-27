@@ -13,7 +13,11 @@ import {
     schemaViaCli,
     buildmapViaCli,
     promptViaCli,
-    prepareViaCli
+    prepareViaCli,
+    checkForUpdatesViaCli,
+    updateViaCli,
+    getCliVersion,
+    compareVersions
 } from './cliIntegration';
 
 /**
@@ -1129,6 +1133,154 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
         }
     };
 
+    const checkForUpdates = async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('No workspace folder is open.');
+            return;
+        }
+
+        const workspaceRoot = workspaceFolders[0].uri.fsPath;
+        const { available, cliPath, useFallback } = await ensureCliAvailable();
+
+        if (!available || !cliPath) {
+            if (!useFallback) {
+                return;
+            }
+            vscode.window.showWarningMessage('Update check requires the aicodec CLI. Please install it.');
+            return;
+        }
+
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Checking for aicodec CLI updates...',
+            cancellable: false
+        }, async () => {
+            // Check CLI version first
+            const version = await getCliVersion(cliPath, workspaceRoot);
+
+            if (!version) {
+                vscode.window.showErrorMessage('Could not determine CLI version.');
+                return;
+            }
+
+            // Check if version supports update checking (>= 2.11.0)
+            if (compareVersions(version, '2.11.0') < 0) {
+                const viewDocs = 'View Documentation';
+                const cancel = 'Cancel';
+
+                const choice = await vscode.window.showWarningMessage(
+                    `Your aicodec CLI (v${version}) is outdated and doesn't support update checking. Please update manually.`,
+                    viewDocs,
+                    cancel
+                );
+
+                if (choice === viewDocs) {
+                    vscode.env.openExternal(vscode.Uri.parse('https://stevie1704.github.io/aicodec/getting-started/installation/#method-2-from-pre-built-binaries'));
+                }
+                return;
+            }
+
+            const result = await checkForUpdatesViaCli(cliPath, workspaceRoot);
+
+            if (result.success) {
+                const output = result.stdout || '';
+                if (output.toLowerCase().includes('update available') || output.toLowerCase().includes('new version')) {
+                    // Check if version supports automatic update (>= 2.11.3)
+                    if (compareVersions(version, '2.11.3') < 0) {
+                        const viewDocs = 'View Documentation';
+                        const cancel = 'Cancel';
+
+                        const choice = await vscode.window.showWarningMessage(
+                            `${output}\n\nYour current version (v${version}) doesn't support automatic updates. Please update manually.`,
+                            viewDocs,
+                            cancel
+                        );
+
+                        if (choice === viewDocs) {
+                            vscode.env.openExternal(vscode.Uri.parse('https://stevie1704.github.io/aicodec/getting-started/installation/#method-2-from-pre-built-binaries'));
+                        }
+                    } else {
+                        const updateNow = 'Update Now';
+                        const cancel = 'Cancel';
+
+                        const choice = await vscode.window.showInformationMessage(
+                            `${output}\n\nWould you like to update now?`,
+                            updateNow,
+                            cancel
+                        );
+
+                        if (choice === updateNow) {
+                            vscode.commands.executeCommand('aicodec.update');
+                        }
+                    }
+                } else {
+                    vscode.window.showInformationMessage('You are already using the latest version of aicodec CLI!');
+                }
+            } else {
+                vscode.window.showErrorMessage(`Failed to check for updates:\n${result.stderr}`);
+            }
+        });
+    };
+
+    const runUpdate = async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('No workspace folder is open.');
+            return;
+        }
+
+        const workspaceRoot = workspaceFolders[0].uri.fsPath;
+        const { available, cliPath, useFallback } = await ensureCliAvailable();
+
+        if (!available || !cliPath) {
+            if (!useFallback) {
+                return;
+            }
+            vscode.window.showWarningMessage('Update command requires the aicodec CLI. Please install it.');
+            return;
+        }
+
+        // Check CLI version first
+        const version = await getCliVersion(cliPath, workspaceRoot);
+
+        if (!version) {
+            vscode.window.showErrorMessage('Could not determine CLI version.');
+            return;
+        }
+
+        // Check if version supports automatic update (>= 2.11.3)
+        if (compareVersions(version, '2.11.3') < 0) {
+            const viewDocs = 'View Documentation';
+            const cancel = 'Cancel';
+
+            const choice = await vscode.window.showWarningMessage(
+                `Your aicodec CLI (v${version}) doesn't support automatic updates. Please update manually.`,
+                viewDocs,
+                cancel
+            );
+
+            if (choice === viewDocs) {
+                vscode.env.openExternal(vscode.Uri.parse('https://stevie1704.github.io/aicodec/getting-started/installation/#method-2-from-pre-built-binaries'));
+            }
+            return;
+        }
+
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Updating aicodec CLI...',
+            cancellable: false
+        }, async () => {
+            const result = await updateViaCli(cliPath, workspaceRoot);
+
+            if (result.success) {
+                vscode.window.showInformationMessage(`Successfully updated aicodec CLI!\n${result.stdout}`);
+            } else {
+                vscode.window.showErrorMessage(`Failed to update aicodec CLI:\n${result.stderr}`);
+            }
+        });
+    };
+
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.setPath', setAicodecPath));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.editConfig', openConfigEditor));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.refresh', refresh));
@@ -1148,4 +1300,6 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.applyAllChanges', () => applyOrRevertAll('changes.json')));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.revertAllChanges', () => applyOrRevertAll('revert.json')));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.startNewSession', startNewSession));
+    context.subscriptions.push(vscode.commands.registerCommand('aicodec.checkForUpdates', checkForUpdates));
+    context.subscriptions.push(vscode.commands.registerCommand('aicodec.update', runUpdate));
 }

@@ -746,9 +746,24 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
             return; // User cancelled
         }
 
+        // Ask about output instructions
+        const instructionsChoice = await vscode.window.showQuickPick(
+            ['Include Output Instructions', 'No Output Instructions'],
+            {
+                placeHolder: 'Should the prompt include output format instructions for the LLM?',
+                canPickMany: false
+            }
+        );
+
+        if (!instructionsChoice) {
+            return; // User cancelled
+        }
+
+        const noOutputInstruction = instructionsChoice === 'No Output Instructions';
+
         // Ask if they want to copy to clipboard or save to file
         const outputChoice = await vscode.window.showQuickPick(
-            ['Save to File', 'Copy to Clipboard'],
+            ['Copy to Clipboard', 'Save to File'],
             {
                 placeHolder: 'How would you like to output the prompt?',
                 canPickMany: false
@@ -772,7 +787,8 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
                 task: task.trim(), // Pass task from user input
                 // All other options (minimal, techStack, etc.) come from config.json
                 clipboard: false,  // Always use file-based approach
-                skipEditor: true  // Skip external editor, open in VSCode instead
+                skipEditor: true,  // Skip external editor, open in VSCode instead
+                noOutputInstruction  // Pass the user's choice
             });
 
             if (result.success) {
@@ -859,9 +875,24 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
             return; // User cancelled
         }
 
+        // Ask about output instructions
+        const instructionsChoice = await vscode.window.showQuickPick(
+            ['Include Output Instructions', 'No Output Instructions'],
+            {
+                placeHolder: 'Should the prompt include output format instructions for the LLM?',
+                canPickMany: false
+            }
+        );
+
+        if (!instructionsChoice) {
+            return; // User cancelled
+        }
+
+        const noOutputInstruction = instructionsChoice === 'No Output Instructions';
+
         // Ask if they want to copy to clipboard or save to file
         const outputChoice = await vscode.window.showQuickPick(
-            ['Save to File', 'Copy to Clipboard'],
+            ['Copy to Clipboard', 'Save to File'],
             {
                 placeHolder: 'How would you like to output the prompt?',
                 canPickMany: false
@@ -886,7 +917,8 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
                 // All other options (minimal, techStack, etc.) come from config.json
                 clipboard: false,  // Always use file-based approach
                 skipEditor: true,  // Skip external editor, open in VSCode instead
-                newProject: true   // Enable new project mode
+                newProject: true,  // Enable new project mode
+                noOutputInstruction  // Pass the user's choice
             });
 
             if (result.success) {

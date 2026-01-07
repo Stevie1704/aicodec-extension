@@ -1321,6 +1321,150 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
         }
     };
 
+    const addToContext = async () => {
+        const aicodecPath = getAicodecPath();
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+
+        if (!aicodecPath) {
+            vscode.window.showErrorMessage('AIcodec path is not set. Please configure it first.');
+            return;
+        }
+
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('No workspace folder is open.');
+            return;
+        }
+
+        const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+        // Open file picker dialog allowing multiple file and folder selection
+        const selectedItems = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: true,
+            canSelectMany: true,
+            openLabel: 'Add to Context',
+            title: 'Select files or folders to add to context',
+            defaultUri: vscode.Uri.file(workspaceRoot)
+        });
+
+        if (!selectedItems || selectedItems.length === 0) {
+            return; // User cancelled
+        }
+
+        // Helper function to recursively get all files in a directory
+        const getAllFilesInDirectory = (dirPath: string): string[] => {
+            const files: string[] = [];
+            const items = fs.readdirSync(dirPath);
+
+            for (const item of items) {
+                const itemPath = path.join(dirPath, item);
+                const stat = fs.statSync(itemPath);
+
+                if (stat.isDirectory()) {
+                    // Skip common directories that shouldn't be added
+                    if (item === 'node_modules' || item === '.git' || item === '.aicodec') {
+                        continue;
+                    }
+                    files.push(...getAllFilesInDirectory(itemPath));
+                } else if (stat.isFile()) {
+                    files.push(itemPath);
+                }
+            }
+
+            return files;
+        };
+
+        // Collect all file paths (expanding folders)
+        const allFilePaths: string[] = [];
+        for (const itemUri of selectedItems) {
+            const itemPath = itemUri.fsPath;
+            const stat = fs.statSync(itemPath);
+
+            if (stat.isDirectory()) {
+                allFilePaths.push(...getAllFilesInDirectory(itemPath));
+            } else {
+                allFilePaths.push(itemPath);
+            }
+        }
+
+        if (allFilePaths.length === 0) {
+            vscode.window.showInformationMessage('No files found to add.');
+            return;
+        }
+
+        try {
+            const contextPath = path.join(aicodecPath, 'context.json');
+
+            // Read existing context.json or create empty array
+            let contextData: Array<{ filePath: string; content: string }> = [];
+            if (fs.existsSync(contextPath)) {
+                const contextContent = fs.readFileSync(contextPath, 'utf8');
+                const parsed = JSON.parse(contextContent);
+                if (Array.isArray(parsed)) {
+                    contextData = parsed;
+                }
+            }
+
+            // Create a set of existing file paths for quick lookup
+            const existingPaths = new Set(contextData.map(f => f.filePath));
+
+            let addedCount = 0;
+            let skippedCount = 0;
+            let errorCount = 0;
+
+            for (const fullPath of allFilePaths) {
+                const relativePath = path.relative(workspaceRoot, fullPath);
+
+                // Skip if file is already in context
+                if (existingPaths.has(relativePath)) {
+                    skippedCount++;
+                    continue;
+                }
+
+                // Read file content
+                try {
+                    const content = fs.readFileSync(fullPath, 'utf8');
+                    contextData.push({
+                        filePath: relativePath,
+                        content: content
+                    });
+                    existingPaths.add(relativePath);
+                    addedCount++;
+                } catch (error) {
+                    console.error(`Failed to read file ${fullPath}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Ensure .aicodec directory exists
+            if (!fs.existsSync(aicodecPath)) {
+                fs.mkdirSync(aicodecPath, { recursive: true });
+            }
+
+            // Write updated context.json
+            fs.writeFileSync(contextPath, JSON.stringify(contextData, null, 2), 'utf8');
+
+            // Show result message
+            const parts: string[] = [];
+            if (addedCount > 0) {
+                parts.push(`Added ${addedCount} file${addedCount === 1 ? '' : 's'}`);
+            }
+            if (skippedCount > 0) {
+                parts.push(`${skippedCount} already in context`);
+            }
+            if (errorCount > 0) {
+                parts.push(`${errorCount} could not be read`);
+            }
+            if (parts.length > 0) {
+                vscode.window.showInformationMessage(parts.join(', '));
+            }
+
+            refresh();
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to add files to context: ${error}`);
+        }
+    };
+
     const uninstallCli = async () => {
         // Check if CLI is installed
         const cliPath = await findAicodecCli();
@@ -1393,4 +1537,5 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.update', runUpdate));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.installCli', installCli));
     context.subscriptions.push(vscode.commands.registerCommand('aicodec.uninstallCli', uninstallCli));
+    context.subscriptions.push(vscode.commands.registerCommand('aicodec.addToContext', addToContext));
 }

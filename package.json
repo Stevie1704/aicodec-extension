@@ -2,7 +2,7 @@
     "name": "aicodec",
     "displayName": "AIcodec GUI",
     "description": "A VSCode GUI for the aicodec CLI tool.",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "publisher": "steviekra",
     "repository": {
         "type": "git",
@@ -195,29 +195,39 @@
                 "command": "aicodec.startNewSession",
                 "title": "AIcodec: Start New Session",
                 "icon": "$(trash)"
+            },
+            {
+                "command": "aicodec.addToContext",
+                "title": "Add Files to Context",
+                "icon": "$(add)"
             }
         ],
         "menus": {
             "view/title": [
                 {
-                    "command": "aicodec.editConfig",
-                    "when": "view == aicodec.aggregatesView || view == aicodec.changesView || view == aicodec.revertsView",
+                    "command": "aicodec.addToContext",
+                    "when": "view == aicodec.aggregatesView",
                     "group": "navigation@0"
                 },
                 {
-                    "command": "aicodec.refresh",
+                    "command": "aicodec.editConfig",
                     "when": "view == aicodec.aggregatesView || view == aicodec.changesView || view == aicodec.revertsView",
                     "group": "navigation@1"
                 },
                 {
+                    "command": "aicodec.refresh",
+                    "when": "view == aicodec.aggregatesView || view == aicodec.changesView || view == aicodec.revertsView",
+                    "group": "navigation@2"
+                },
+                {
                     "command": "aicodec.aggregate",
                     "when": "view == aicodec.aggregatesView",
-                    "group": "navigation@2"
+                    "group": "navigation@3"
                 },
                 {
                     "command": "aicodec.aggregateForce",
                     "when": "view == aicodec.aggregatesView",
-                    "group": "navigation@3"
+                    "group": "navigation@4"
                 },
                 {
                     "command": "aicodec.applyAllChanges",

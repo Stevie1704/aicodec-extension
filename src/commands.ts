@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { AicodecTreeItem } from './tree/AicodecTreeItem';
-import { getAicodecPath, readAicodecJson, ensureConfigExists, AicodecFile } from './utils';
+import { getAicodecPath, readAicodecJson, ensureConfigExists, AicodecFile, findFileByPath, findFileIndexByPath, normalizePath } from './utils';
 import { AicodecContentProvider } from './AicodecContentProvider';
 import { ConfigEditorPanel } from './ConfigEditorPanel';
 import {
@@ -227,7 +227,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
         // For changes.json, create an editable temp file for the right side
         if (item.jsonSourceFile === 'changes.json') {
             const files = await readAicodecJson(aicodecPath, item.jsonSourceFile);
-            const targetFile = files.find(f => f.filePath === relativePath);
+            const targetFile = findFileByPath(files, relativePath);
 
             if (!targetFile) {
                 vscode.window.showErrorMessage(`File ${relativePath} not found in ${item.jsonSourceFile}`);
@@ -297,7 +297,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
                     }
 
                     // Update the content for this file
-                    const fileIndex = changesList.findIndex((f: any) => f.filePath === relativePath);
+                    const fileIndex = findFileIndexByPath(changesList as Array<{ filePath: string }>, relativePath);
                     if (fileIndex !== -1) {
                         changesList[fileIndex].content = changedContent;
 
@@ -429,7 +429,7 @@ export async function registerCommands(context: vscode.ExtensionContext, refresh
             files = await readAicodecJson(aicodecPath, jsonFile);
         }
 
-        const targetFile = files.find(f => f.filePath === relativePath);
+        const targetFile = findFileByPath(files, relativePath);
 
         if (targetFile) {
             try {

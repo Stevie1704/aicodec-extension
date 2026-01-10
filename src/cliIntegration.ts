@@ -5,6 +5,87 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+// WSL UNC path matching patterns
+const WSL_DOLLAR_PATTERN = /^\\\\wsl\$\\([^\\]+)\\?(.*)?$/i;
+const WSL_LOCALHOST_PATTERN = /^\\\\wsl\.localhost\\([^\\]+)\\?(.*)?$/i;
+
+/**
+ * Checks if a path is a WSL UNC path (Windows accessing WSL filesystem).
+ * WSL UNC paths look like: \\wsl$\Ubuntu\home\user or \\wsl.localhost\Ubuntu\home\user
+ */
+function isWslUncPath(inputPath: string): boolean {
+    if (!inputPath) return false;
+    const normalized = inputPath.replace(/\//g, '\\');
+    return normalized.startsWith('\\\\wsl$\\') || normalized.startsWith('\\\\wsl.localhost\\');
+}
+
+/**
+ * Converts a WSL UNC path to a proper WSL Unix path.
+ * Example: \\wsl$\Ubuntu\home\user\project -> /home/user/project
+ * Example: \\wsl.localhost\Ubuntu\home\user\project -> /home/user/project
+ */
+function convertWslUncToUnixPath(uncPath: string): string {
+    if (!isWslUncPath(uncPath)) {
+        return uncPath;
+    }
+
+    // Normalize to use backslashes for consistent parsing
+    const normalized = uncPath.replace(/\//g, '\\');
+
+    const match = normalized.match(WSL_DOLLAR_PATTERN) || normalized.match(WSL_LOCALHOST_PATTERN);
+
+    if (match) {
+        // match[1] = distro name (e.g., "Ubuntu")
+        // match[2] = rest of the path (e.g., "home\user\project")
+        const restOfPath = match[2] || '';
+        // Convert backslashes to forward slashes and ensure leading slash
+        const unixPath = '/' + restOfPath.replace(/\\/g, '/');
+        return unixPath;
+    }
+
+    return uncPath;
+}
+
+/**
+ * Gets the WSL distribution name from a UNC path.
+ * Returns null if not a WSL UNC path or if the distro name is invalid.
+ */
+function getWslDistroFromUncPath(uncPath: string): string | null {
+    if (!isWslUncPath(uncPath)) {
+        return null;
+    }
+
+    const normalized = uncPath.replace(/\//g, '\\');
+    const match = normalized.match(WSL_DOLLAR_PATTERN) || normalized.match(WSL_LOCALHOST_PATTERN);
+
+    if (!match) {
+        return null;
+    }
+
+    // Sanitize distro name to prevent command injection
+    // Only allow alphanumeric characters, hyphens, underscores, and dots
+    // (valid WSL distro names follow these patterns)
+    const distro = match[1];
+    if (!/^[a-zA-Z0-9_.-]+$/.test(distro)) {
+        console.warn(`Invalid WSL distro name detected: ${distro}`);
+        return null;
+    }
+
+    return distro;
+}
+
+/**
+ * Escapes a string for safe use in bash shell commands.
+ * Uses single quotes which preserve all characters literally,
+ * except for single quotes themselves which require special handling.
+ */
+function escapeForBash(arg: string): string {
+    // Single quotes preserve everything literally except single quotes
+    // To include a single quote: end string, add escaped quote, restart string
+    // Example: "it's" becomes 'it'\''s'
+    return "'" + arg.replace(/'/g, "'\\''") + "'";
+}
+
 export interface CliResult {
     success: boolean;
     stdout: string;
@@ -15,7 +96,8 @@ export interface CliResult {
  * Finds the aicodec CLI executable.
  * Checks in order:
  * 1. User-configured path from settings
- * 2. PATH environment variable
+ * 2. WSL PATH (if workspace is in WSL)
+ * 3. System PATH environment variable
  */
 export async function findAicodecCli(): Promise<string | null> {
     // Check user configuration first
@@ -29,7 +111,22 @@ export async function findAicodecCli(): Promise<string | null> {
         }
     }
 
-    // Try to find in PATH
+    // Check if workspace is in WSL
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspacePath = workspaceFolders?.[0]?.uri.fsPath;
+
+    if (workspacePath && isWslUncPath(workspacePath)) {
+        // Try to find CLI in WSL
+        const distro = getWslDistroFromUncPath(workspacePath);
+        const wslCliPath = await findInWslPath('aicodec', distro);
+        if (wslCliPath) {
+            // Return a marker that indicates this is a WSL CLI
+            // The executeCliCommand function will handle this
+            return wslCliPath;
+        }
+    }
+
+    // Try to find in Windows/native PATH
     const cliPath = await findInPath('aicodec');
     if (cliPath) {
         return cliPath;
@@ -67,7 +164,31 @@ async function findInPath(executable: string): Promise<string | null> {
 }
 
 /**
+ * Finds an executable in WSL's PATH.
+ * @param executable The name of the executable to find
+ * @param distro Optional WSL distribution name
+ * @returns The path to the executable in WSL, or null if not found
+ */
+async function findInWslPath(executable: string, distro: string | null): Promise<string | null> {
+    try {
+        const distroArg = distro ? `-d ${distro}` : '';
+        const command = `wsl ${distroArg} which ${executable}`.trim();
+        const { stdout } = await execAsync(command, { timeout: 10000 });
+        const wslPath = stdout.trim();
+        if (wslPath) {
+            // Return the WSL path as-is - the execute function will handle it
+            return wslPath;
+        }
+        return null;
+    } catch (error) {
+        console.error('Error finding executable in WSL PATH:', error);
+        return null;
+    }
+}
+
+/**
  * Executes an aicodec CLI command.
+ * Handles WSL UNC paths by executing the command inside WSL when necessary.
  */
 export async function executeCliCommand(
     cliPath: string,
@@ -75,14 +196,70 @@ export async function executeCliCommand(
     cwd?: string
 ): Promise<CliResult> {
     try {
-        const command = `"${cliPath}" ${args.join(' ')}`;
-        console.log(`Executing: ${command}`);
+        let command: string;
+        let execOptions: { cwd?: string; timeout: number; maxBuffer: number };
 
-        const { stdout, stderr } = await execAsync(command, {
-            cwd: cwd,
-            timeout: 60000, // 60 seconds timeout
-            maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-        });
+        // Check if we need to execute inside WSL (Windows host with WSL workspace)
+        if (cwd && isWslUncPath(cwd)) {
+            const distro = getWslDistroFromUncPath(cwd);
+            const unixCwd = convertWslUncToUnixPath(cwd);
+
+            // Determine the CLI path to use in WSL
+            let wslCliPath: string;
+            if (isWslUncPath(cliPath)) {
+                // Convert WSL UNC path to Unix path
+                wslCliPath = convertWslUncToUnixPath(cliPath);
+            } else if (cliPath.startsWith('/')) {
+                // Already a Unix path (e.g., from findInWslPath)
+                wslCliPath = cliPath;
+            } else {
+                // Windows path or just 'aicodec' - fall back to PATH lookup in WSL
+                wslCliPath = 'aicodec';
+            }
+
+            // Normalize paths in arguments (convert backslashes to forward slashes for WSL)
+            // and properly escape for bash using single quotes
+            const escapedArgs = args.map(arg => {
+                // Convert backslashes to forward slashes in paths
+                // This handles file paths like "src\file.ts" -> "src/file.ts"
+                const normalized = arg.replace(/\\/g, '/');
+                // Use proper shell escaping with single quotes
+                return escapeForBash(normalized);
+            }).join(' ');
+
+            // Escape the cwd and cli path as well
+            const escapedCwd = escapeForBash(unixCwd);
+            const escapedCliPath = escapeForBash(wslCliPath);
+
+            // Build the WSL command
+            // Note: escapedCwd and escapedCliPath are already single-quoted by escapeForBash
+            if (distro) {
+                command = `wsl -d ${distro} bash -c "cd ${escapedCwd} && ${escapedCliPath} ${escapedArgs}"`;
+            } else {
+                // Fallback without distro specification
+                command = `wsl bash -c "cd ${escapedCwd} && ${escapedCliPath} ${escapedArgs}"`;
+            }
+
+            console.log(`Executing via WSL: ${command}`);
+
+            // Don't pass cwd to execAsync since we're handling it in the WSL command
+            execOptions = {
+                timeout: 60000,
+                maxBuffer: 10 * 1024 * 1024
+            };
+        } else {
+            // Standard execution (non-WSL)
+            command = `"${cliPath}" ${args.join(' ')}`;
+            console.log(`Executing: ${command}`);
+
+            execOptions = {
+                cwd: cwd,
+                timeout: 60000,
+                maxBuffer: 10 * 1024 * 1024
+            };
+        }
+
+        const { stdout, stderr } = await execAsync(command, execOptions);
 
         return {
             success: true,

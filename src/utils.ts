@@ -211,3 +211,43 @@ export async function ensureConfigExists(): Promise<boolean> {
 
     return false;
 }
+
+/**
+ * Normalizes a file path by converting backslashes to forward slashes.
+ * This ensures consistent path comparison across Windows and Unix systems.
+ */
+export function normalizePath(p: string): string {
+    return p.replace(/\\/g, '/');
+}
+
+/**
+ * Compares two file paths for equality, normalizing separators.
+ * Handles Windows backslashes vs Unix forward slashes.
+ */
+export function pathsEqual(p1: string, p2: string): boolean {
+    return normalizePath(p1) === normalizePath(p2);
+}
+
+/**
+ * Finds a file in an array by matching the filePath property.
+ * Uses normalized path comparison for cross-platform compatibility.
+ */
+export function findFileByPath<T extends { filePath: string }>(
+    files: T[],
+    targetPath: string
+): T | undefined {
+    const normalizedTarget = normalizePath(targetPath);
+    return files.find(f => normalizePath(f.filePath) === normalizedTarget);
+}
+
+/**
+ * Finds the index of a file in an array by matching the filePath property.
+ * Uses normalized path comparison for cross-platform compatibility.
+ */
+export function findFileIndexByPath<T extends { filePath: string }>(
+    files: T[],
+    targetPath: string
+): number {
+    const normalizedTarget = normalizePath(targetPath);
+    return files.findIndex(f => normalizePath(f.filePath) === normalizedTarget);
+}

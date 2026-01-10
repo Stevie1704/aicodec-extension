@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { AicodecTreeItem } from './AicodecTreeItem';
-import { getAicodecPath, readAicodecJson, AicodecFile } from '../utils';
+import { getAicodecPath, readAicodecJson, AicodecFile, findFileByPath } from '../utils';
 
 export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecTreeItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<AicodecTreeItem | undefined | null | void> = new vscode.EventEmitter<AicodecTreeItem | undefined | null | void>();
@@ -144,7 +144,7 @@ export class AicodecTreeDataProvider implements vscode.TreeDataProvider<AicodecT
         const absolutePath = path.join(workspaceRoot, filePath);
 
         // Find the proposed content from changes.json
-        const changeData = this.fileData.find(f => f.filePath === filePath);
+        const changeData = findFileByPath(this.fileData, filePath);
         if (!changeData) {
             console.log(`[AicodecTreeDataProvider] No change data found for ${filePath}`);
             return false;
